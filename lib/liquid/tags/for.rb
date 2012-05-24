@@ -22,6 +22,18 @@ module Liquid
   #      {{ item.name }}
   #    {% end %}
   #
+  # You can also specify an order for the collection items
+  #
+  #    {% for item in collection order:ascending %}
+  #      {{ item.name }}
+  #    {% end %}
+  #
+  # You can also specify which attribute to sort by.
+  #
+  #    {% for item in collection sort_by:name order:descending %}
+  #      {{ item.name }}
+  #    {% end %}
+  #
   #  To reverse the for loop simply use {% for item in collection reversed %}
   #
   # == Available variables:
@@ -54,6 +66,7 @@ module Liquid
         markup.scan(TagAttributes) do |key, value|
           @attributes[key] = value
         end
+        @reversed = 'reversed' if @attributes['order'] == 'descending'
       else
         raise SyntaxError.new("Syntax Error in 'for loop' - Valid syntax: for [item] in [collection]")
       end
@@ -69,6 +82,23 @@ module Liquid
 
       return '' unless collection.respond_to?(:each)
 
+      sort_property = @attributes['sort_by']
+      order_property = @attributes['order']
+      
+       if sort_property || order_property
+         collection = if sort_property.nil? && (@attributes['order'] == 'ascending' || @attributes['order'] == 'descending')
+           collection.sort
+         elsif collection.first.respond_to?('[]') and !collection.first[sort_property].nil?
+           collection.sort {|a,b| a[sort_property] <=> b[sort_property] }
+         elsif collection.first.respond_to?(sort_property)
+           collection.sort {|a,b| a.send(sort_property) <=> b.send(sort_property) }
+         else
+           collection
+         end
+       end
+
+       collection.reverse! if @reversed
+
       from = if @attributes['offset'] == 'continue'
         context.registers[:for][@name].to_i
       else
@@ -82,8 +112,6 @@ module Liquid
       segment = slice_collection_using_each(collection, from, to)
 
       return '' if segment.empty?
-
-      segment.reverse! if @reversed
 
       result = []
 
