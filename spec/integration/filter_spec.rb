@@ -166,7 +166,7 @@ describe "Liquid Rendering" do
 
         it "should return a float when dividing by another float" do
           @context['val'] = 14
-          render_variable('val | divided_by:3.0').should be_close(4.666, 0.001)
+          render_variable('val | divided_by:3.0').should be_within(0.001).of(4.666)
         end
 
         it "should return an errorm essage if divided by 0" do

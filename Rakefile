@@ -1,31 +1,28 @@
 #!/usr/bin/env ruby
 require 'rubygems'
-
-require "bundler"
-Bundler.setup
+require 'bundler/setup'
 
 require 'rake'
-require 'rake/gempackagetask'
+require 'rspec'
+require 'rspec/core/rake_task'
+require 'rubygems/package_task'
 
-require "rspec"
-require "rspec/core/rake_task"
-
-Rspec::Core::RakeTask.new("spec") do |spec|
+RSpec::Core::RakeTask.new("spec") do |spec|
   spec.pattern = "spec/**/*_spec.rb"
 end
 
 desc "Run the Integration Specs (rendering)"
-Rspec::Core::RakeTask.new("spec:integration") do |spec|
+RSpec::Core::RakeTask.new("spec:integration") do |spec|
   spec.pattern = "spec/unit/*_spec.rb"
 end
 
 desc "Run the Unit Specs"
-Rspec::Core::RakeTask.new("spec:unit") do |spec|
+RSpec::Core::RakeTask.new("spec:unit") do |spec|
   spec.pattern = "spec/unit/*_spec.rb"
 end
 
 desc "Run all the specs without all the verbose spec output"
-Rspec::Core::RakeTask.new('spec:progress') do |spec|
+RSpec::Core::RakeTask.new('spec:progress') do |spec|
   spec.rspec_opts = %w(--format progress)
   spec.pattern = "spec/**/*_spec.rb"
 end
@@ -33,7 +30,7 @@ end
 task :default => :spec
 
 gemspec = eval(File.read('locomotive_liquid.gemspec'))
-Rake::GemPackageTask.new(gemspec) do |pkg|
+Gem::PackageTask.new(gemspec) do |pkg|
   pkg.gem_spec = gemspec
 end
 

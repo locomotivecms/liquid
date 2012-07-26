@@ -8,7 +8,7 @@ describe "Liquid Rendering" do
   describe "Drops" do
 
     it "allow rendering with a product" do
-      expect {
+      lambda {
         Liquid::Template.parse('  ').render('product' => ProductDrop.new)
       }.should_not raise_error
     end

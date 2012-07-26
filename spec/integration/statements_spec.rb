@@ -7,51 +7,51 @@ describe "Liquid Rendering" do
     end
 
     def render(*args)
-      super("#{subject} true {% else %} false {% endif %}", data)
+      super("#{subject} true {% else %} false {% endif %}", data).strip
     end
 
     describe %| {% if true == true %} | do
-      it{ render.should == " true " }
+      it{ render.should == "true" }
     end
 
     describe %| {% if true != true %} | do
-      it{ render.should == " false " }
+      it{ render.should == "false" }
     end
 
     describe %| {% if 0 > 0 %} | do
-      it{ render.should == " false " }
+      it{ render.should == "false" }
     end
 
     describe %| {% if 1 > 0 %} | do
-      it{ render.should == " true " }
+      it{ render.should == "true" }
     end
 
     describe %| {% if 0 < 1 %} | do
-      it{ render.should == " true " }
+      it{ render.should == "true" }
     end
 
     describe %| {% if 0 <= 0 %} | do
-      it{ render.should == " true " }
+      it{ render.should == "true" }
     end
 
     describe %| {% if null <= 0 %} | do
-      it{ render.should == " false " }
+      it{ render.should == "false" }
     end
 
     describe %| {% if 0 <= null %} | do
-      it{ render.should == " false " }
+      it{ render.should == "false" }
     end
 
     describe %| {% if 0 >= 0 %} | do
-      it{ render.should == " true " }
+      it{ render.should == "true" }
     end
 
     describe %| {% if 'test' == 'test' %} | do
-      it{ render.should == " true " }
+      it{ render.should == "true" }
     end
 
     describe %| {% if 'test' != 'test' %} | do
-      it{ render.should == " false " }
+      it{ render.should == "false" }
     end
 
     context 'when var is assigned to "hello there!"' do
@@ -60,19 +60,19 @@ describe "Liquid Rendering" do
       end
 
       describe %| {% if var == "hello there!" %} | do
-        it{ render.should == " true " }
+        it{ render.should == "true" }
       end
 
       describe %| {% if "hello there!" == var %} | do
-        it{ render.should == " true " }
+        it{ render.should == "true" }
       end
 
       describe %| {% if var == 'hello there!' %} | do
-        it{ render.should == " true " }
+        it{ render.should == "true" }
       end
 
       describe %| {% if 'hello there!' == var %} | do
-        it{ render.should == " true " }
+        it{ render.should == "true" }
       end
     end
 
@@ -81,7 +81,7 @@ describe "Liquid Rendering" do
         {'array' => ''}
       end
       describe %| {% if array == empty %} | do
-        it{ render.should == " true " }
+        it{ render.should == "true" }
       end
     end
 
@@ -92,7 +92,7 @@ describe "Liquid Rendering" do
       end
 
       describe %| {% if array == empty %} | do
-        it{ render.should == " false " }
+        it{ render.should == "false" }
       end
     end
 
@@ -102,11 +102,11 @@ describe "Liquid Rendering" do
       end
 
       describe %| {% if var == nil %} | do
-        it{ render.should == " true " }
+        it{ render.should == "true" }
       end
 
       describe %| {% if var == null %} | do
-        it{ render.should == " true " }
+        it{ render.should == "true" }
       end
     end
 
@@ -116,11 +116,11 @@ describe "Liquid Rendering" do
       end
 
       describe %| {% if var != nil %} | do
-        it{ render.should == " true " }
+        it{ render.should == "true" }
       end
 
       describe %| {% if var != null %} | do
-        it{ render.should == " true " }
+        it{ render.should == "true" }
       end
     end
 

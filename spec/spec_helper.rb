@@ -61,6 +61,6 @@ module Liquid
   end
 end
 
-Rspec.configure do |c|
+RSpec.configure do |c|
   c.include Liquid::SpecHelpers
 end

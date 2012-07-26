@@ -23,6 +23,6 @@ module RSpec
   end
 end
 
-Rspec.configure do |c|
-  c.include Rspec::MultilineString
+RSpec.configure do |c|
+  c.include RSpec::MultilineString
 end
