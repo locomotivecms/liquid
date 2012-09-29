@@ -9,7 +9,7 @@ module Liquid
   #  {{ foo }}
   #
   class Assign < Tag
-    Syntax = /(#{VariableSignature}+)\s*=\s*(#{QuotedFragment}+)/
+    Syntax = /(#{VariableSignature}+)\s*=\s*(.*)\s*/o
 
     def initialize(tag_name, markup, tokens, context)
       if markup =~ Syntax
@@ -23,7 +23,7 @@ module Liquid
     end
 
     def render(context)
-       context.scopes.last[@to] = context[@from]
+       context.scopes.last[@to] = Liquid::Variable.new(@from).render(context)
        ''
     end
 

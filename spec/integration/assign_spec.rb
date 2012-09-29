@@ -13,6 +13,14 @@ describe "Liquid Rendering" do
         }
       end
 
+      describe %!"{% assign foo = values | first %}.{{ foo }}."! do
+        it{ template.render(render_options).should == '.foo.' }
+      end
+
+      describe %!"{% assign foo = values | first | capitalize %}.{{ foo }}."! do
+        it{ template.render(render_options).should == '.Foo.' }
+      end
+
       describe %|"{% assign foo = values %}.{{ foo[0] }}."| do
         it{ template.render(render_options).should == ".foo." }
       end
