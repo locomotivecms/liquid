@@ -88,6 +88,12 @@ module Liquid
       end
     end
 
+    context "#split" do
+      it "should split the given string into an array based on the given delimeter" do
+        filters.split("red|green|blue", "|").should == ['red', 'green', 'blue']
+      end
+    end
+
     context "#strip_html" do
       it "should strip out the html tags but leave the content" do
         filters.strip_html("<div>test</div>").should == "test"
