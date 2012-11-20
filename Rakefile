@@ -35,7 +35,7 @@ Rake::TestTask.new(:test) do |t|
   t.verbose = false
 end
 
-task :default => :spec
+task :default => [:spec, :test]
 
 gemspec = eval(File.read('locomotive_liquid.gemspec'))
 

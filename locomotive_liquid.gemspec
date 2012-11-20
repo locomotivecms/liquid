@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = "locomotive_liquid"
-  s.version = "2.2.3"
+  s.version = "2.4.1"
 
   s.required_rubygems_version = ">= 1.3.6"
   s.authors = ["Tobias Luetke", "Didier Lafforgue", "Jacques Crocker"]
@@ -19,7 +19,7 @@ Gem::Specification.new do |s|
                  "{lib}/**/*"]
 
   s.has_rdoc = true
-  s.homepage = "http://www.locomotiveapp.org"
+  s.homepage = "http://www.locomotivecms.com"
   s.rdoc_options = ["--main", "README.md"]
   s.require_paths = ["lib"]
   s.rubyforge_project = "locomotive_liquid"
