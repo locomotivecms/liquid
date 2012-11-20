@@ -4,7 +4,7 @@ module Liquid
   describe BlankFileSystem do
     it "should error out when trying to ready any file" do
       expect {
-        BlankFileSystem.new.read_template_file("dummy")
+        BlankFileSystem.new.read_template_file("dummy", nil)
       }.to raise_error(Liquid::FileSystemError)
     end
   end

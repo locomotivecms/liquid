@@ -147,13 +147,13 @@ describe "Liquid Rendering" do
         describe "edge cases" do
           context "limit: -1" do
             it "should ignore the limit" do
-              render("{%for item in collection limit:-1 offset:5 %}{{item}}{%endfor%}", data).should == "67890"
+              render("{%for item in collection limit:-1 offset:5 %}{{item}}{%endfor%}", data).should == ""
             end
           end
 
           context "offset: -1" do
             it "should ignore the offset" do
-              render("{%for item in collection limit:1 offset:-1 %}{{item}}{%endfor%}", data).should == "1"
+              render("{%for item in collection limit:1 offset:-1 %}{{item}}{%endfor%}", data).should == ""
             end
           end
 

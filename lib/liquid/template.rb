@@ -55,7 +55,7 @@ module Liquid
     # Parse source code.
     # Returns self for easy chaining
     def parse(source, context = {})
-      @root = Document.new(tokenize(Liquid::Literal.from_shorthand(source)), context.merge!(:template => self))
+      @root = Document.new(tokenize(source), context.merge!(:template => self))
       self
     end
 
