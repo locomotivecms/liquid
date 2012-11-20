@@ -13,8 +13,8 @@ module Liquid
   #    <div class="green"> Item five</div>
   #
   class Cycle < Tag
-    SimpleSyntax = /^#{QuotedFragment}+/
-    NamedSyntax  = /^(#{QuotedFragment})\s*\:\s*(.*)/
+    SimpleSyntax = /^#{QuotedFragment}+/o
+    NamedSyntax  = /^(#{QuotedFragment})\s*\:\s*(.*)/o
 
     def initialize(tag_name, markup, tokens, context)
       case markup
@@ -48,9 +48,9 @@ module Liquid
 
     def variables_from_string(markup)
       markup.split(',').collect do |var|
-        var =~ /\s*(#{QuotedFragment})\s*/
-        $1 ? $1 : nil
-      end.compact
+    	  var =~ /\s*(#{QuotedFragment})\s*/o
+    	  $1 ? $1 : nil
+    	end.compact
     end
 
   end

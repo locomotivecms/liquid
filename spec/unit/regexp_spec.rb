@@ -71,19 +71,5 @@ module Liquid
       end
     end
 
-    describe "LiteralShorthand" do
-      context "{{{ something }}}" do
-        it { subject.scan(LiteralShorthand).should == [["something"]] }
-      end
-
-      context "{{{something}}}" do
-        it { subject.scan(LiteralShorthand).should == [["something"]] }
-      end
-
-      context "{{{ {% if false %} false {% endif %} }}}" do
-        it { subject.scan(LiteralShorthand).should == [["{% if false %} false {% endif %}"]] }
-      end
-    end
-
   end
 end

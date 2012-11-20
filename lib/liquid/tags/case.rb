@@ -1,7 +1,7 @@
 module Liquid
   class Case < Block
-    Syntax     = /(#{QuotedFragment})/
-    WhenSyntax = /(#{QuotedFragment})(?:(?:\s+or\s+|\s*\,\s*)(#{QuotedFragment}.*))?/
+    Syntax     = /(#{QuotedFragment})/o
+    WhenSyntax = /(#{QuotedFragment})(?:(?:\s+or\s+|\s*\,\s*)(#{QuotedFragment}.*))?/o
 
     def initialize(tag_name, markup, tokens, context)
       @blocks = []
@@ -31,20 +31,16 @@ module Liquid
       context.stack do
         execute_else_block = true
 
-        @blocks.inject([]) do |output, block|
-
+        output = ''
+        @blocks.each do |block|
           if block.else?
-
             return render_all(block.attachment, context) if execute_else_block
-
           elsif block.evaluate(context)
-
             execute_else_block = false
-            output += render_all(block.attachment, context)
+            output << render_all(block.attachment, context)
           end
-
-          output
         end
+        output
       end
     end
 

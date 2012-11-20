@@ -1,6 +1,6 @@
 module Liquid
   class Include < Tag
-    Syntax = /(#{QuotedFragment}+)(\s+(?:with|for)\s+(#{QuotedFragment}+))?/
+    Syntax = /(#{QuotedFragment}+)(\s+(?:with|for)\s+(#{QuotedFragment}+))?/o
 
     def initialize(tag_name, markup, tokens, context)
       if markup =~ Syntax
@@ -24,10 +24,8 @@ module Liquid
     end
 
     def render(context)
-      file_system = context.registers[:file_system] || Liquid::Template.file_system
-      source  = file_system.read_template_file(context[@template_name])
+      source = _read_template_from_file_system(context)
       partial = Liquid::Template.parse(source)
-
       variable = context[@variable_name || @template_name[1..-2]]
 
       context.stack do
@@ -36,20 +34,31 @@ module Liquid
         end
 
         if variable.is_a?(Array)
-
           variable.collect do |variable|
             context[@template_name[1..-2]] = variable
             partial.render(context)
           end
-
         else
-
           context[@template_name[1..-2]] = variable
           partial.render(context)
-
         end
       end
     end
+
+    private
+      def _read_template_from_file_system(context)
+        file_system = context.registers[:file_system] || Liquid::Template.file_system
+
+        # make read_template_file call backwards-compatible.
+        case file_system.method(:read_template_file).arity
+        when 1
+          file_system.read_template_file(context[@template_name])
+        when 2
+          file_system.read_template_file(context[@template_name], context)
+        else
+          raise ArgumentError, "file_system.read_template_file expects two parameters: (template_name, context)"
+        end
+      end
   end
 
   Template.register_tag('include', Include)

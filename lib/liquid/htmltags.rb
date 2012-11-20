@@ -1,6 +1,6 @@
 module Liquid
   class TableRow < Block
-    Syntax = /(\w+)\s+in\s+(#{VariableSignature}+)/
+    Syntax = /(\w+)\s+in\s+(#{QuotedFragment}+)/o
 
     def initialize(tag_name, markup, tokens, context)
       if markup =~ Syntax
@@ -20,11 +20,10 @@ module Liquid
     def render(context)
       collection = context[@collection_name] or return ''
 
-      if @attributes['limit'] or @attributes['offset']
-        limit = context[@attributes['limit']] || -1
-        offset = context[@attributes['offset']] || 0
-        collection = collection[offset.to_i..(limit.to_i + offset.to_i - 1)]
-      end
+      from = @attributes['offset'] ? context[@attributes['offset']].to_i : 0
+      to = @attributes['limit'] ? from + context[@attributes['limit']].to_i : nil
+
+      collection = Utils.slice_collection_using_each(collection, from, to)
 
       length = collection.length
 
@@ -33,7 +32,7 @@ module Liquid
       row = 1
       col = 0
 
-      result = ["<tr class=\"row1\">\n"]
+      result = "<tr class=\"row1\">\n"
       context.stack do
 
         collection.each_with_index do |item, index|
@@ -46,7 +45,7 @@ module Liquid
             'col0'    => col,
             'index0'  => index,
             'rindex'  => length - index,
-            'rindex0' => length - index -1,
+            'rindex0' => length - index - 1,
             'first'   => (index == 0),
             'last'    => (index == length - 1),
             'col_first' => (col == 0),
@@ -56,17 +55,18 @@ module Liquid
 
           col += 1
 
-          result << ["<td class=\"col#{col}\">"] + render_all(@nodelist, context) + ['</td>']
+          result << "<td class=\"col#{col}\">" << render_all(@nodelist, context) << '</td>'
 
           if col == cols and not (index == length - 1)
             col  = 0
             row += 1
-            result << ["</tr>\n<tr class=\"row#{row}\">"]
+            result << "</tr>\n<tr class=\"row#{row}\">"
           end
 
         end
       end
-      result + ["</tr>\n"]
+      result << "</tr>\n"
+      result
     end
   end
 

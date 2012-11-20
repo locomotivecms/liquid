@@ -19,8 +19,6 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION
 # WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-$LOAD_PATH.unshift(File.dirname(__FILE__))
-
 module Liquid
   FilterSeparator             = /\|/
   ArgumentSeparator           = ','
@@ -34,23 +32,23 @@ module Liquid
   VariableEnd                 = /\}\}/
   VariableIncompleteEnd       = /\}\}?/
   QuotedString                = /"[^"]*"|'[^']*'/
-  QuotedFragment              = /#{QuotedString}|(?:[^\s,\|'"]|#{QuotedString})+/
-  StrictQuotedFragment        = /"[^"]+"|'[^']+'|[^\s,\|,\:,\,]+/
-  FirstFilterArgument         = /#{FilterArgumentSeparator}(?:#{StrictQuotedFragment})/
-  OtherFilterArgument         = /#{ArgumentSeparator}(?:#{StrictQuotedFragment})/
-  SpacelessFilter             = /^(?:'[^']+'|"[^"]+"|[^'"])*#{FilterSeparator}(?:#{StrictQuotedFragment})(?:#{FirstFilterArgument}(?:#{OtherFilterArgument})*)?/
-  Expression                  = /(?:#{QuotedFragment}(?:#{SpacelessFilter})*)/
-  TagAttributes               = /(\w+)\s*\:\s*(#{QuotedFragment})/
+  QuotedFragment              = /#{QuotedString}|(?:[^\s,\|'"]|#{QuotedString})+/o
+  StrictQuotedFragment        = /"[^"]+"|'[^']+'|[^\s|:,]+/
+  FirstFilterArgument         = /#{FilterArgumentSeparator}(?:#{StrictQuotedFragment})/o
+  OtherFilterArgument         = /#{ArgumentSeparator}(?:#{StrictQuotedFragment})/o
+  SpacelessFilter             = /^(?:'[^']+'|"[^"]+"|[^'"])*#{FilterSeparator}(?:#{StrictQuotedFragment})(?:#{FirstFilterArgument}(?:#{OtherFilterArgument})*)?/o
+  Expression                  = /(?:#{QuotedFragment}(?:#{SpacelessFilter})*)/o
+  TagAttributes               = /(\w+)\s*\:\s*(#{QuotedFragment})/o
   AnyStartingTag              = /\{\{|\{\%/
-  PartialTemplateParser       = /#{TagStart}.*?#{TagEnd}|#{VariableStart}.*?#{VariableIncompleteEnd}/
-  TemplateParser              = /(#{PartialTemplateParser}|#{AnyStartingTag})/
-  VariableParser              = /\[[^\]]+\]|#{VariableSegment}+\??/
-  LiteralShorthand            = /^(?:\{\{\{\s?)(.*?)(?:\s*\}\}\})$/
+  PartialTemplateParser       = /#{TagStart}.*?#{TagEnd}|#{VariableStart}.*?#{VariableIncompleteEnd}/o
+  TemplateParser              = /(#{PartialTemplateParser}|#{AnyStartingTag})/o
+  VariableParser              = /\[[^\]]+\]|#{VariableSegment}+\??/o
 end
 
 require 'liquid/drop'
 require 'liquid/extensions'
 require 'liquid/errors'
+require 'liquid/interrupts'
 require 'liquid/strainer'
 require 'liquid/context'
 require 'liquid/tag'
@@ -63,6 +61,7 @@ require 'liquid/htmltags'
 require 'liquid/standardfilters'
 require 'liquid/condition'
 require 'liquid/module_ex'
+require 'liquid/utils'
 
 # Load all the tags of the standard library
 #

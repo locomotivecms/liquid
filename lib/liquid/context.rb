@@ -22,6 +22,8 @@ module Liquid
       @errors         = []
       @rethrow_errors = rethrow_errors
       squash_instance_assigns_with_environments
+
+      @interrupts = []
     end
 
     def strainer
@@ -39,6 +41,21 @@ module Liquid
         raise ArgumentError, "Expected module but got: #{f.class}" unless f.is_a?(Module)
         strainer.extend(f)
       end
+    end
+
+    # are there any not handled interrupts?
+    def has_interrupt?
+      !@interrupts.empty?
+    end
+
+    # push an interrupt to the stack. this interrupt is considered not handled.
+    def push_interrupt(e)
+      @interrupts.push(e)
+    end
+
+    # pop an interrupt from the stack
+    def pop_interrupt
+      @interrupts.pop
     end
 
     def handle_error(e)
@@ -63,8 +80,8 @@ module Liquid
 
     # Push new local scope on the stack. use <tt>Context#stack</tt> instead
     def push(new_scope={})
-      raise StackLevelError, "Nesting too deep" if @scopes.length > 100
       @scopes.unshift(new_scope)
+      raise StackLevelError, "Nesting too deep" if @scopes.length > 100
     end
 
     # Merge a hash of variables in the current local scope
@@ -86,17 +103,11 @@ module Liquid
     #   end
     #
     #   context['var]  #=> nil
-    def stack(new_scope={},&block)
-      result = nil
+    def stack(new_scope={})
       push(new_scope)
-
-      begin
-        result = yield
-      ensure
-        pop
-      end
-
-      result
+      yield
+    ensure
+      pop
     end
 
     def clear_instance_assigns
@@ -117,6 +128,15 @@ module Liquid
     end
 
     private
+
+      LITERALS = {
+        nil => nil, 'nil' => nil, 'null' => nil, '' => nil,
+        'true'  => true,
+        'false' => false,
+        'blank' => :blank?,
+        'empty' => :empty?
+      }
+
       # Look up variable, either resolve directly after considering the name. We can directly handle
       # Strings, digits, floats and booleans (true,false).
       # If no match is made we lookup the variable in the current scope and
@@ -126,29 +146,23 @@ module Liquid
       # Example:
       #   products == empty #=> products.empty?
       def resolve(key)
-        case key
-        when nil, 'nil', 'null', ''
-          nil
-        when 'true'
-          true
-        when 'false'
-          false
-        when 'blank'
-          :blank?
-        when 'empty' # Single quoted strings
-          :empty?
-        when /^'(.*)'$/ # Double quoted strings
-          $1.to_s
-        when /^"(.*)"$/ # Integer and floats
-          $1.to_s
-        when /^(\d+)$/ # Ranges
-          $1.to_i
-        when /^\((\S+)\.\.(\S+)\)$/ # Floats
-          (resolve($1).to_i..resolve($2).to_i)
-        when /^(\d[\d\.]+)$/
-          $1.to_f
+        if LITERALS.key?(key)
+          LITERALS[key]
         else
-          variable(key)
+          case key
+          when /^'(.*)'$/ # Single quoted strings
+            $1
+          when /^"(.*)"$/ # Double quoted strings
+            $1
+          when /^(-?\d+)$/ # Integer and floats
+            $1.to_i
+          when /^\((\S+)\.\.(\S+)\)$/ # Ranges
+            (resolve($1).to_i..resolve($2).to_i)
+          when /^(-?\d[\d\.]+)$/ # Floats
+            $1.to_f
+          else
+            variable(key)
+          end
         end
       end
 

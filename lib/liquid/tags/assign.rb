@@ -14,7 +14,7 @@ module Liquid
     def initialize(tag_name, markup, tokens, context)
       if markup =~ Syntax
         @to = $1
-        @from = $2
+        @from = Variable.new($2)
       else
         raise SyntaxError.new("Syntax Error in 'assign' - Valid syntax: assign [var] = [source]")
       end
@@ -23,7 +23,7 @@ module Liquid
     end
 
     def render(context)
-       context.scopes.last[@to] = Liquid::Variable.new(@from).render(context)
+       context.scopes.last[@to] = @from.render(context)
        ''
     end
 

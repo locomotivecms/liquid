@@ -13,11 +13,10 @@ module Liquid
   #
   class If < Block
     SyntaxHelp = "Syntax Error in tag 'if' - Valid syntax: if [expression]"
-    Syntax = /(#{QuotedFragment})\s*([=!<>a-z_]+)?\s*(#{QuotedFragment})?/
-    ExpressionsAndOperators = /(?:\b(?:\s?and\s?|\s?or\s?)\b|(?:\s*(?!\b(?:\s?and\s?|\s?or\s?)\b)(?:#{QuotedFragment}|\S+)\s*)+)/
+    Syntax = /(#{QuotedFragment})\s*([=!<>a-z_]+)?\s*(#{QuotedFragment})?/o
+    ExpressionsAndOperators = /(?:\b(?:\s?and\s?|\s?or\s?)\b|(?:\s*(?!\b(?:\s?and\s?|\s?or\s?)\b)(?:#{QuotedFragment}|\S+)\s*)+)/o
 
     def initialize(tag_name, markup, tokens, context)
-
       @blocks = []
 
       push_block('if', markup)
@@ -46,33 +45,32 @@ module Liquid
 
     private
 
-    def push_block(tag, markup)
-      block = if tag == 'else'
-        ElseCondition.new
-      else
+      def push_block(tag, markup)
+        block = if tag == 'else'
+          ElseCondition.new
+        else
 
-        expressions = markup.scan(ExpressionsAndOperators).reverse
-        raise(SyntaxError, SyntaxHelp) unless expressions.shift =~ Syntax
+          expressions = markup.scan(ExpressionsAndOperators).reverse
+          raise(SyntaxError, SyntaxHelp) unless expressions.shift =~ Syntax
 
-        condition = Condition.new($1, $2, $3)
+          condition = Condition.new($1, $2, $3)
 
-        while not expressions.empty?
-          operator = (expressions.shift).to_s.strip
+          while not expressions.empty?
+            operator = (expressions.shift).to_s.strip
 
-          raise(SyntaxError, SyntaxHelp) unless expressions.shift.to_s =~ Syntax
+            raise(SyntaxError, SyntaxHelp) unless expressions.shift.to_s =~ Syntax
 
-          new_condition = Condition.new($1, $2, $3)
-          new_condition.send(operator.to_sym, condition)
-          condition = new_condition
+            new_condition = Condition.new($1, $2, $3)
+            new_condition.send(operator.to_sym, condition)
+            condition = new_condition
+          end
+
+          condition
         end
 
-        condition
+        @blocks.push(block)
+        @nodelist = block.attach(Array.new)
       end
-
-      @blocks.push(block)
-      @nodelist = block.attach(Array.new)
-    end
-
 
   end
 

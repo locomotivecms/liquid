@@ -1,4 +1,8 @@
+*~
 *.gem
+*.swp
 pkg
 .rvmrc
 .bundle/config
+*.rbc
+.rvmrc

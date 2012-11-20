@@ -1,10 +1,10 @@
 module Liquid
 
   class Block < Tag
-    IsTag             = /^#{TagStart}/
-    IsVariable        = /^#{VariableStart}/
-    FullToken         = /^#{TagStart}\s*(\w+)\s*(.*)?#{TagEnd}$/
-    ContentOfVariable = /^#{VariableStart}(.*)#{VariableEnd}$/
+    IsTag             = /^#{TagStart}/o
+    IsVariable        = /^#{VariableStart}/o
+    FullToken         = /^#{TagStart}\s*(\w+)\s*(.*)?#{TagEnd}$/o
+    ContentOfVariable = /^#{VariableStart}(.*)#{VariableEnd}$/o
 
     def parse(tokens)
       @nodelist ||= []
@@ -89,13 +89,27 @@ module Liquid
     end
 
     def render_all(list, context)
-      list.collect do |token|
+      output = []
+      list.each do |token|
+        # Break out if we have any unhanded interrupts.
+        break if context.has_interrupt?
+
         begin
-          token.respond_to?(:render) ? token.render(context) : token
-        rescue Exception => e
-          context.handle_error(e)
+          # If we get an Interrupt that means the block must stop processing. An
+          # Interrupt is any command that stops block execution such as {% break %} 
+          # or {% continue %}
+          if token.is_a? Continue or token.is_a? Break
+            context.push_interrupt(token.interrupt)
+            break
+          end
+
+          output << (token.respond_to?(:render) ? token.render(context) : token)
+        rescue ::StandardError => e
+          output << (context.handle_error(e))
         end
       end
+
+      output.join
     end
   end
 end

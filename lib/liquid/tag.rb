@@ -1,6 +1,7 @@
 module Liquid
 
   class Tag
+
     attr_accessor :nodelist, :context
 
     def initialize(tag_name, markup, tokens, context)
@@ -20,8 +21,7 @@ module Liquid
     def render(context)
       ''
     end
-  end
 
+  end # Tag
 
-end
-
+end # Tag

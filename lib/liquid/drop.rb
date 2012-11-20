@@ -1,26 +1,28 @@
 module Liquid
 
-  # A drop in liquid is a class which allows you to to export DOM like things to liquid
+  # A drop in liquid is a class which allows you to export DOM like things to liquid.
   # Methods of drops are callable.
-  # The main use for liquid drops is the implement lazy loaded objects.
+  # The main use for liquid drops is to implement lazy loaded objects.
   # If you would like to make data available to the web designers which you don't want loaded unless needed then
-  # a drop is a great way to do that
+  # a drop is a great way to do that.
   #
   # Example:
   #
-  # class ProductDrop < Liquid::Drop
-  #   def top_sales
-  #      Shop.current.products.find(:all, :order => 'sales', :limit => 10 )
+  #   class ProductDrop < Liquid::Drop
+  #     def top_sales
+  #       Shop.current.products.find(:all, :order => 'sales', :limit => 10 )
+  #     end
   #   end
-  # end
   #
-  # tmpl = Liquid::Template.parse( ' {% for product in product.top_sales %} {{ product.name }} {%endfor%} '  )
-  # tmpl.render('product' => ProductDrop.new ) # will invoke top_sales query.
+  #   tmpl = Liquid::Template.parse( ' {% for product in product.top_sales %} {{ product.name }} {%endfor%} '  )
+  #   tmpl.render('product' => ProductDrop.new ) # will invoke top_sales query.
   #
   # Your drop can either implement the methods sans any parameters or implement the before_method(name) method which is a
-  # catch all
+  # catch all.
   class Drop
     attr_writer :context
+
+    EMPTY_STRING = ''.freeze
 
     # Catch all for the method
     def before_method(method)
@@ -28,13 +30,11 @@ module Liquid
     end
 
     # called by liquid to invoke a drop
-    def invoke_drop(method)
-      # for backward compatibility with Ruby 1.8
-      methods = self.class.public_instance_methods.map { |m| m.to_s }
-      if methods.include?(method.to_s)
-        send(method.to_sym)
+    def invoke_drop(method_or_key)
+      if method_or_key && method_or_key != EMPTY_STRING && self.class.public_method_defined?(method_or_key.to_s.to_sym)
+        send(method_or_key.to_s.to_sym)
       else
-        before_method(method)
+        before_method(method_or_key)
       end
     end
 

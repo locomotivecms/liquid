@@ -22,7 +22,6 @@ module Liquid
             return render_all(block.attachment, context)
           end
         end
-
         ''
       end
     end
