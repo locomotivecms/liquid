@@ -1,6 +1,6 @@
 Gem::Specification.new do |s|
   s.name = "locomotive_liquid"
-  s.version = "2.4.1"
+  s.version = "2.4.2"
 
   s.required_rubygems_version = ">= 1.3.6"
   s.authors = ["Tobias Luetke", "Didier Lafforgue", "Jacques Crocker"]
