@@ -6,7 +6,6 @@ module Liquid
 
     # Return the size of an array or of an string
     def size(input)
-
       input.respond_to?(:size) ? input.size : 0
     end
 

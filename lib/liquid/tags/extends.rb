@@ -10,7 +10,7 @@ module Liquid
 
     def initialize(tag_name, markup, tokens, context)
       if markup =~ Syntax
-        @template_name = $1.gsub('\'', '').strip
+        @template_name = $1.gsub(/["']/o, '').strip
       else
         raise SyntaxError.new("Error in tag 'extends' - Valid syntax: extends [template]")
       end

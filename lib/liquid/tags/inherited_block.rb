@@ -10,14 +10,16 @@ module Liquid
     Syntax = /(#{QuotedFragment}+)/
 
     attr_accessor :parent
-    attr_reader :name
+    attr_reader   :name
 
     def initialize(tag_name, markup, tokens, context)
       if markup =~ Syntax
-        @name = $1
+        @name = $1.gsub(/["']/o, '').strip
       else
         raise SyntaxError.new("Error in tag 'block' - Valid syntax: block [name]")
       end
+
+      self.set_full_name!(context)
 
       (context[:block_stack] ||= []).push(self)
       context[:current_block] = self
@@ -55,6 +57,12 @@ module Liquid
     end
 
     protected
+
+    def set_full_name!(context)
+      if context[:current_block]
+        @name = context[:current_block].name + '/' + @name
+      end
+    end
 
     def register_current_block
       @context[:blocks] ||= {}

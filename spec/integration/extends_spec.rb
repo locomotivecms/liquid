@@ -103,9 +103,27 @@ describe "Liquid Rendering" do
         output.should == 'Output / Lorem ipsum: Deep: Hello, World!'
 
         @templates['nested_and_deep'] = "{% extends base %}{% block content %}Deep: {{block.super}} -{% block inner %}FOO{% endblock %}-{% endblock %}"
-        output = render("{% extends nested_and_deep %}{% block inner %}BAR{% endblock %}")
+        output = render("{% extends nested_and_deep %}{% block content/inner %}BAR{% endblock %}")
         output.should == 'Output / Deep: Hello, World! -BAR-'
       end
+    end
+
+    describe "nested inherited blocks" do
+
+      before(:each) do
+        @templates['base'] = "Output / {% block content %}Hello, World!{% block tagline %}(My tagline){% endblock %}{% endblock %}"
+      end
+
+      it "should allow overriding blocks from an inherited template" do
+        output = render("{% extends base %}{% block content %}Hola, Mundo!{% endblock %}")
+        output.should == 'Output / Hola, Mundo!'
+      end
+
+      it "should allow overriding blocks from an inherited template" do
+        output = render("{% extends base %}{% block content/tagline %}(new tagline){% endblock %}")
+        output.should == 'Output / Hello, World!(new tagline)'
+      end
+
     end
 
   end

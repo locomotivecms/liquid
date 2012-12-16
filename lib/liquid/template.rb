@@ -132,6 +132,31 @@ module Liquid
       @rethrow_errors = true; render(*args)
     end
 
+    def walk(memo = {}, &block)
+      # puts @root.nodelist.inspect
+      self._walk(@root.nodelist, memo, &block)
+    end
+
+    def _walk(list, memo = {}, &block)
+      list.each do |node|
+        saved_memo = memo.clone
+
+        # puts "fetch ! #{node.respond_to?(:name) ? node.name : 'String'} / #{node.respond_to?(:nodelist)}"
+        if block_given?
+          # puts "youpi ! #{node.name}"
+          _memo = yield(node, memo) || {}
+          memo.merge!(_memo)
+        end
+
+        if node.respond_to?(:nodelist) && !node.nodelist.blank?
+          self._walk(node.nodelist, memo, &block)
+        end
+
+        memo = saved_memo
+      end
+      memo
+    end
+
     private
 
     # Uses the <tt>Liquid::TemplateParser</tt> regexp to tokenize the passed source
