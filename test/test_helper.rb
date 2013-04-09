@@ -2,6 +2,7 @@
 
 require 'test/unit'
 require 'test/unit/assertions'
+require 'active_support/core_ext'
 begin
   require 'ruby-debug'
 rescue LoadError
