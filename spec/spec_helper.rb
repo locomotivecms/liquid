@@ -12,6 +12,7 @@ $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), "..", "lib"))
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), "fixtures"))
 
 require 'locomotive_liquid'
+require 'active_support/core_ext'
 
 require 'rspec'
 

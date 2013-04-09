@@ -1,4 +1,5 @@
 require 'cgi'
+require 'active_support/core_ext'
 
 module Liquid
 
@@ -11,17 +12,17 @@ module Liquid
 
     # convert a input string to DOWNCASE
     def downcase(input)
-      input.to_s.downcase
+      input.to_s.mb_chars.downcase
     end
 
     # convert a input string to UPCASE
     def upcase(input)
-      input.to_s.upcase
+      input.to_s.mb_chars.upcase
     end
 
     # capitalize words in the input centence
     def capitalize(input)
-      input.to_s.capitalize
+      input.to_s.mb_chars.capitalize
     end
 
     def escape(input)

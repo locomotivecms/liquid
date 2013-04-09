@@ -27,6 +27,10 @@ module Liquid
         filters.downcase("Testing").should == "testing"
       end
 
+      it "should properly handle non ascii strings" do
+        filters.downcase("Проверка").should == "проверка"
+      end
+
       it "should return empty string for nil" do
         filters.downcase(nil).should == ""
       end
@@ -37,8 +41,26 @@ module Liquid
         filters.upcase("Testing").should == "TESTING"
       end
 
+      it "should properly handle non ascii strings" do
+        filters.upcase("Проверка").should == "ПРОВЕРКА"
+      end
+
       it "should return empty string for nil" do
         filters.upcase(nil).should == ""
+      end
+    end
+
+    context "#capitalize" do
+      it "should make the first letter of string upper case" do
+        filters.capitalize("testing").should == "Testing"
+      end
+
+      it "should properly handle non ascii strings" do
+        filters.capitalize("проверка").should == "Проверка"
+      end
+
+      it "should return empty string for nil" do
+        filters.capitalize(nil).should == ""
       end
     end
 
