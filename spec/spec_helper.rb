@@ -11,7 +11,7 @@ $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), "..", "lib"))
 # add fixtures to load path
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), "fixtures"))
 
-require 'locomotive_liquid'
+require 'locomotivecms-liquid'
 
 require 'rspec'
 

@@ -14,7 +14,11 @@ module Liquid
   #   template.render('user_name' => 'bob')
   #
   class Template
-    attr_accessor :root
+    DEFAULT_OPTIONS = {
+      :locale => I18n.new
+    }
+
+    attr_accessor :root, :resource_limits
     @@file_system = BlankFileSystem.new
 
     class << self
@@ -34,6 +38,27 @@ module Liquid
         @tags ||= {}
       end
 
+      # Disabled (false) for better performance
+      def count_lines=(flag)
+        @count_lines = flag
+      end
+
+      def count_lines
+        @count_lines || false
+      end
+
+      # Sets how strict the parser should be.
+      # :lax acts like liquid 2.5 and silently ignores malformed tags in most cases.
+      # :warn is the default and will give deprecation warnings when invalid syntax is used.
+      # :strict will enforce correct syntax.
+      def error_mode=(mode)
+        @error_mode = mode
+      end
+
+      def error_mode
+        @error_mode || :lax
+      end
+
       # Pass a module with filter methods which should be available
       # to all liquid views. Good for registering the standard library
       def register_filter(mod)
@@ -41,22 +66,30 @@ module Liquid
       end
 
       # creates a new <tt>Template</tt> object from liquid source code
-      def parse(source, context = {})
+      def parse(source, options = {})
         template = Template.new
-        template.parse(source, context)
+        template.parse(source, options)
         template
       end
     end
 
     # creates a new <tt>Template</tt> from an array of tokens. Use <tt>Template.parse</tt> instead
     def initialize
+      @resource_limits = {}
     end
 
     # Parse source code.
     # Returns self for easy chaining
-    def parse(source, context = {})
-      @root = Document.new(tokenize(source), context.merge!(:template => self))
+    def parse(source, options = {})
+      _options = { template: self }.merge(DEFAULT_OPTIONS).merge(options)
+      @root = Document.new(tokenize(source), _options)
+      @warnings = nil
       self
+    end
+
+    def warnings
+      return [] unless @root
+      @warnings ||= @root.warnings
     end
 
     def registers
@@ -92,12 +125,15 @@ module Liquid
       context = case args.first
       when Liquid::Context
         args.shift
+      when Liquid::Drop
+        drop = args.shift
+        drop.context = Context.new([drop, assigns], instance_assigns, registers, @rethrow_errors, @resource_limits)
       when Hash
-        Context.new([args.shift, assigns], instance_assigns, registers, @rethrow_errors)
+        Context.new([args.shift, assigns], instance_assigns, registers, @rethrow_errors, @resource_limits)
       when nil
-        Context.new(assigns, instance_assigns, registers, @rethrow_errors)
+        Context.new(assigns, instance_assigns, registers, @rethrow_errors, @resource_limits)
       else
-        raise ArgumentError, "Expect Hash or Liquid::Context as parameter"
+        raise ArgumentError, "Expected Hash or Liquid::Context as parameter"
       end
 
       case args.last
@@ -120,9 +156,11 @@ module Liquid
 
       begin
         # render the nodelist.
-        # for performance reasons we get a array back here. join will make a string out of it
+        # for performance reasons we get an array back here. join will make a string out of it.
         result = @root.render(context)
         result.respond_to?(:join) ? result.join : result
+      rescue Liquid::MemoryError => e
+        context.handle_error(e)
       ensure
         @errors = context.errors
       end

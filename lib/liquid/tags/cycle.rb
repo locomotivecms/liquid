@@ -1,5 +1,4 @@
 module Liquid
-
   # Cycle is usually used within a loop to alternate between values, like colors or DOM classes.
   #
   #   {% for item in items %}
@@ -16,7 +15,7 @@ module Liquid
     SimpleSyntax = /^#{QuotedFragment}+/o
     NamedSyntax  = /^(#{QuotedFragment})\s*\:\s*(.*)/o
 
-    def initialize(tag_name, markup, tokens, context)
+    def initialize(tag_name, markup, tokens, options)
       case markup
       when NamedSyntax
         @variables = variables_from_string($2)
@@ -25,7 +24,7 @@ module Liquid
         @variables = variables_from_string(markup)
         @name = "'#{@variables.to_s}'"
       else
-        raise SyntaxError.new("Syntax Error in 'cycle' - Valid syntax: cycle [name :] var [, var2, var3 ...]")
+        raise SyntaxError.new(options[:locale].t("errors.syntax.cycle"), options[:line])
       end
       super
     end
@@ -44,15 +43,18 @@ module Liquid
       end
     end
 
+    def blank?
+      false
+    end
+
     private
 
     def variables_from_string(markup)
       markup.split(',').collect do |var|
-    	  var =~ /\s*(#{QuotedFragment})\s*/o
-    	  $1 ? $1 : nil
-    	end.compact
+        var =~ /\s*(#{QuotedFragment})\s*/o
+        $1 ? $1 : nil
+      end.compact
     end
-
   end
 
   Template.register_tag('cycle', Cycle)

@@ -1,7 +1,42 @@
+# encoding: utf-8
+
 require 'test_helper'
 
 class Filters
   include Liquid::StandardFilters
+end
+
+class TestThing
+  def initialize
+    @foo = 0
+  end
+
+  def to_s
+    "woot: #{@foo}"
+  end
+
+  def [](whatever)
+    to_s
+  end
+
+  def to_liquid
+    @foo += 1
+    self
+  end
+end
+
+class TestDrop < Liquid::Drop
+  def test
+    "testfoo"
+  end
+end
+
+class TestEnumerable < Liquid::Drop
+  include Enumerable
+
+  def each(&block)
+    [ { "foo" => 1, "bar" => 2 }, { "foo" => 2, "bar" => 1 }, { "foo" => 3, "bar" => 3 } ].each(&block)
+  end
 end
 
 class StandardFiltersTest < Test::Unit::TestCase
@@ -37,6 +72,7 @@ class StandardFiltersTest < Test::Unit::TestCase
     assert_equal '1234567890', @filters.truncate('1234567890', 20)
     assert_equal '...', @filters.truncate('1234567890', 0)
     assert_equal '1234567890', @filters.truncate('1234567890')
+    assert_equal "测试...", @filters.truncate("测试测试测试测试", 5)
   end
 
   def test_strip
@@ -61,12 +97,16 @@ class StandardFiltersTest < Test::Unit::TestCase
     assert_equal 'one two...', @filters.truncatewords('one two three', 2)
     assert_equal 'one two three', @filters.truncatewords('one two three')
     assert_equal 'Two small (13&#8221; x 5.5&#8221; x 10&#8221; high) baskets fit inside one large basket (13&#8221;...', @filters.truncatewords('Two small (13&#8221; x 5.5&#8221; x 10&#8221; high) baskets fit inside one large basket (13&#8221; x 16&#8221; x 10.5&#8221; high) with cover.', 15)
+    assert_equal "测试测试测试测试", @filters.truncatewords('测试测试测试测试', 5)
   end
 
   def test_strip_html
     assert_equal 'test', @filters.strip_html("<div>test</div>")
     assert_equal 'test', @filters.strip_html("<div id='test'>test</div>")
     assert_equal '', @filters.strip_html("<script type='text/javascript'>document.write('some stuff');</script>")
+    assert_equal '', @filters.strip_html("<style type='text/css'>foo bar</style>")
+    assert_equal 'test', @filters.strip_html("<div\nclass='multiline'>test</div>")
+    assert_equal 'test', @filters.strip_html("<!-- foo bar \n test -->test")
     assert_equal '', @filters.strip_html(nil)
   end
 
@@ -80,10 +120,44 @@ class StandardFiltersTest < Test::Unit::TestCase
     assert_equal [{"a" => 1}, {"a" => 2}, {"a" => 3}, {"a" => 4}], @filters.sort([{"a" => 4}, {"a" => 3}, {"a" => 1}, {"a" => 2}], "a")
   end
 
+  def test_reverse
+    assert_equal [4,3,2,1], @filters.reverse([1,2,3,4])
+  end
+
   def test_map
     assert_equal [1,2,3,4], @filters.map([{"a" => 1}, {"a" => 2}, {"a" => 3}, {"a" => 4}], 'a')
     assert_template_result 'abc', "{{ ary | map:'foo' | map:'bar' }}",
       'ary' => [{'foo' => {'bar' => 'a'}}, {'foo' => {'bar' => 'b'}}, {'foo' => {'bar' => 'c'}}]
+  end
+
+  def test_map_doesnt_call_arbitrary_stuff
+    assert_equal "", Liquid::Template.parse('{{ "foo" | map: "__id__" }}').render
+    assert_equal "", Liquid::Template.parse('{{ "foo" | map: "inspect" }}').render
+  end
+
+  def test_map_calls_to_liquid
+    t = TestThing.new
+    assert_equal "woot: 1", Liquid::Template.parse('{{ foo | map: "whatever" }}').render("foo" => [t])
+  end
+
+  def test_sort_calls_to_liquid
+    t = TestThing.new
+    assert_equal "woot: 1", Liquid::Template.parse('{{ foo | sort: "whatever" }}').render("foo" => [t])
+  end
+
+  def test_map_over_proc
+    drop = TestDrop.new
+    p = Proc.new{ drop }
+    templ = '{{ procs | map: "test" }}'
+    assert_equal "testfoo", Liquid::Template.parse(templ).render("procs" => [p])
+  end
+
+  def test_map_works_on_enumerables
+    assert_equal "123", Liquid::Template.parse('{{ foo | map: "foo" }}').render!("foo" => TestEnumerable.new)
+  end
+
+  def test_sort_works_on_enumerables
+    assert_equal "213", Liquid::Template.parse('{{ foo | sort: "bar" | map: "foo" }}').render!("foo" => TestEnumerable.new)
   end
 
   def test_date
@@ -103,6 +177,8 @@ class StandardFiltersTest < Test::Unit::TestCase
     assert_equal '07/05/2006', @filters.date("2006-07-05 10:00:00", "%m/%d/%Y")
 
     assert_equal "07/16/2004", @filters.date("Fri Jul 16 01:00:00 2004", "%m/%d/%Y")
+    assert_equal "#{Date.today.year}", @filters.date('now', '%Y')
+    assert_equal "#{Date.today.year}", @filters.date('today', '%Y')
 
     assert_equal nil, @filters.date(nil, "%B")
 
@@ -119,9 +195,9 @@ class StandardFiltersTest < Test::Unit::TestCase
   end
 
   def test_replace
-    assert_equal 'b b b b', @filters.replace("a a a a", 'a', 'b')
-    assert_equal 'b a a a', @filters.replace_first("a a a a", 'a', 'b')
-    assert_template_result 'b a a a', "{{ 'a a a a' | replace_first: 'a', 'b' }}"
+    assert_equal '2 2 2 2', @filters.replace('1 1 1 1', '1', 2)
+    assert_equal '2 1 1 1', @filters.replace_first('1 1 1 1', '1', 2)
+    assert_template_result '2 1 1 1', "{{ '1 1 1 1' | replace_first: '1', 2 }}"
   end
 
   def test_remove
@@ -136,6 +212,7 @@ class StandardFiltersTest < Test::Unit::TestCase
 
   def test_strip_newlines
     assert_template_result 'abc', "{{ source | strip_newlines }}", 'source' => "a\nb\nc"
+    assert_template_result 'abc', "{{ source | strip_newlines }}", 'source' => "a\r\nb\nc"
   end
 
   def test_newlines_to_br
@@ -160,6 +237,8 @@ class StandardFiltersTest < Test::Unit::TestCase
     assert_match(/(6\.3)|(6\.(0{13})1)/, Template.parse("{{ '2.1' | times:3 }}").render)
 
     assert_template_result "6", "{{ '2.1' | times:3 | replace: '.','-' | plus:0}}"
+
+    assert_template_result "7.25", "{{ 0.0725 | times:100 }}"
   end
 
   def test_divided_by
@@ -171,6 +250,8 @@ class StandardFiltersTest < Test::Unit::TestCase
 
     assert_template_result "5", "{{ 15 | divided_by:3 }}"
     assert_template_result "Liquid error: divided by 0", "{{ 5 | divided_by:0 }}"
+
+    assert_template_result "0.5", "{{ 2.0 | divided_by:4 }}"
   end
 
   def test_modulo

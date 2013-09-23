@@ -1,5 +1,19 @@
 require 'test_helper'
 
+class TemplateContextDrop < Liquid::Drop
+  def before_method(method)
+    method
+  end
+
+  def foo
+    'fizzbuzz'
+  end
+
+  def baz
+    @context.registers['lulz']
+  end
+end
+
 class TemplateTest < Test::Unit::TestCase
   include Liquid
 
@@ -71,4 +85,76 @@ class TemplateTest < Test::Unit::TestCase
     assert_equal '1', t.render(assigns)
     @global = nil
   end
-end # TemplateTest
+
+  def test_resource_limits_render_length
+    t = Template.parse("0123456789")
+    t.resource_limits = { :render_length_limit => 5 }
+    assert_equal "Liquid error: Memory limits exceeded", t.render()
+    assert t.resource_limits[:reached]
+    t.resource_limits = { :render_length_limit => 10 }
+    assert_equal "0123456789", t.render()
+    assert_not_nil t.resource_limits[:render_length_current]
+  end
+
+  def test_resource_limits_render_score
+    t = Template.parse("{% for a in (1..10) %} {% for a in (1..10) %} foo {% endfor %} {% endfor %}")
+    t.resource_limits = { :render_score_limit => 50 }
+    assert_equal "Liquid error: Memory limits exceeded", t.render()
+    assert t.resource_limits[:reached]
+    t = Template.parse("{% for a in (1..100) %} foo {% endfor %}")
+    t.resource_limits = { :render_score_limit => 50 }
+    assert_equal "Liquid error: Memory limits exceeded", t.render()
+    assert t.resource_limits[:reached]
+    t.resource_limits = { :render_score_limit => 200 }
+    assert_equal (" foo " * 100), t.render()
+    assert_not_nil t.resource_limits[:render_score_current]
+  end
+
+  def test_resource_limits_assign_score
+    t = Template.parse("{% assign foo = 42 %}{% assign bar = 23 %}")
+    t.resource_limits = { :assign_score_limit => 1 }
+    assert_equal "Liquid error: Memory limits exceeded", t.render()
+    assert t.resource_limits[:reached]
+    t.resource_limits = { :assign_score_limit => 2 }
+    assert_equal "", t.render()
+    assert_not_nil t.resource_limits[:assign_score_current]
+  end
+
+  def test_resource_limits_aborts_rendering_after_first_error
+    t = Template.parse("{% for a in (1..100) %} foo1 {% endfor %} bar {% for a in (1..100) %} foo2 {% endfor %}")
+    t.resource_limits = { :render_score_limit => 50 }
+    assert_equal "Liquid error: Memory limits exceeded", t.render()
+    assert t.resource_limits[:reached]
+  end
+
+  def test_resource_limits_hash_in_template_gets_updated_even_if_no_limits_are_set
+    t = Template.parse("{% for a in (1..100) %} {% assign foo = 1 %} {% endfor %}")
+    t.render()
+    assert t.resource_limits[:assign_score_current] > 0
+    assert t.resource_limits[:render_score_current] > 0
+    assert t.resource_limits[:render_length_current] > 0
+  end
+
+  def test_can_use_drop_as_context
+    t = Template.new
+    t.registers['lulz'] = 'haha'
+    drop = TemplateContextDrop.new
+    assert_equal 'fizzbuzz', t.parse('{{foo}}').render(drop)
+    assert_equal 'bar', t.parse('{{bar}}').render(drop)
+    assert_equal 'haha', t.parse("{{baz}}").render(drop)
+  end
+
+  def test_sets_default_localization_in_document
+    t = Template.new
+    t.parse('')
+    assert_instance_of I18n, t.root.options[:locale]
+  end
+
+  def test_sets_default_localization_in_context_with_quick_initialization
+    t = Template.new
+    t.parse('{{foo}}', :locale => I18n.new(fixture("en_locale.yml")))
+
+    assert_instance_of I18n, t.root.options[:locale]
+    assert_equal fixture("en_locale.yml"), t.root.options[:locale].path
+  end
+end

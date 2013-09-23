@@ -12,17 +12,17 @@ module Liquid
     attr_accessor :parent
     attr_reader   :name
 
-    def initialize(tag_name, markup, tokens, context)
+    def initialize(tag_name, markup, tokens, options)
       if markup =~ Syntax
         @name = $1.gsub(/["']/o, '').strip
       else
-        raise SyntaxError.new("Error in tag 'block' - Valid syntax: block [name]")
+        raise(SyntaxError.new(options[:locale].t("errors.syntax.block")), options[:line])
       end
 
-      self.set_full_name!(context)
+      self.set_full_name!(options)
 
-      (context[:block_stack] ||= []).push(self)
-      context[:current_block] = self
+      (options[:block_stack] ||= []).push(self)
+      options[:current_block] = self
 
       super if tokens
     end
@@ -37,8 +37,8 @@ module Liquid
     def end_tag
       self.register_current_block
 
-      @context[:block_stack].pop
-      @context[:current_block] = @context[:block_stack].last
+      options[:block_stack].pop
+      options[:current_block] = options[:block_stack].last
     end
 
     def call_super(context)
@@ -58,16 +58,16 @@ module Liquid
 
     protected
 
-    def set_full_name!(context)
-      if context[:current_block]
-        @name = context[:current_block].name + '/' + @name
+    def set_full_name!(options)
+      if options[:current_block]
+        @name = options[:current_block].name + '/' + @name
       end
     end
 
     def register_current_block
-      @context[:blocks] ||= {}
+      options[:blocks] ||= {}
 
-      block = @context[:blocks][@name]
+      block = options[:blocks][@name]
 
       if block
         # copy the existing block in order to make it a parent of the parsed block

@@ -1,5 +1,46 @@
 # Liquid Version History
 
+IMPORTANT: Liquid 2.6 is going to be the last version of Liquid which maintains explicit Ruby 1.8 compatability.
+The following releases will only be tested against Ruby 1.9 and Ruby 2.0 and are likely to break on Ruby 1.8.
+
+## 2.6.0 / Master branch (not yet released)
+
+* ...
+* Add optional strict parsing and warn parsing, see #235 [Tristan Hume, trishume]
+* Add I18n syntax error translation, see #241 [Simon Hørup Eskildsen, Sirupsen]
+* Make sort filter work on enumerable drops, see #239 [Florian Weingarten, fw42]
+* Fix clashing method names in enumerable drops, see #238 [Florian Weingarten, fw42]
+* Make map filter work on enumerable drops, see #233 [Florian Weingarten, fw42]
+* Fix security issue with map filter, see #230, #232, #234, #237 [Florian Weingarten, fw42]
+* Improved whitespace stripping for blank blocks, related to #216 [Florian Weingarten, fw42]
+* Bugfix for #106: fix example servlet [gnowoel]
+* Bugfix for #97: strip_html filter supports multi-line tags [Jo Liss, joliss]
+* Bugfix for #114: strip_html filter supports style tags [James Allardice, jamesallardice]
+* Bugfix for #117: 'now' support for date filter in Ruby 1.9 [Notre Dame Webgroup, ndwebgroup]
+* Bugfix for #166: truncate filter on UTF-8 strings with Ruby 1.8 [Florian Weingarten, fw42]
+* Bugfix for #204: 'raw' parsing bug [Florian Weingarten, fw42]
+* Bugfix for #150: 'for' parsing bug [Peter Schröder, phoet]
+* Bugfix for #126: Strip CRLF in strip_newline [Peter Schröder, phoet]
+* Allow a Liquid::Drop to be passed into Template#render [Daniel Huckstep, darkhelmet]
+* Resource limits [Florian Weingarten, fw42]
+* Add reverse filter [Jay Strybis, unreal]
+* Add utf-8 support
+* Use array instead of Hash to keep the registered filters [Tasos Stathopoulos, astathopoulos]
+* Cache tokenized partial templates [Tom Burns, boourns]
+* Avoid warnings in Ruby 1.9.3 [Marcus Stollsteimer, stomar]
+* Better documentation for 'include' tag (closes #163) [Peter Schröder, phoet]
+* Use of BigDecimal on filters to have better precision (closes #155) [Arthur Nogueira Neves, arthurnn]
+
+
+## 2.5.0 / 2013-03-06
+
+* Prevent Object methods from being called on drops
+* Avoid symbol injection from liquid
+* Added break and continue statements
+* Fix filter parser for args without space separators
+* Add support for filter keyword arguments
+
+
 ## 2.4.0 / 2012-08-03
 
 * Performance improvements

@@ -1,12 +1,12 @@
 module Liquid
   class Document < Block
     # we don't need markup to open this block
-    def initialize(tokens, context)
-      @context        = context
+    def initialize(tokens, options = {})
+      @options = options
       parse(tokens)
     end
 
-    # There isn't a real delimter
+    # There isn't a real delimiter
     def block_delimiter
       []
     end

@@ -6,3 +6,4 @@ pkg
 .bundle/config
 *.rbc
 .rvmrc
+.ruby-version

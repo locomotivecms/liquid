@@ -44,22 +44,10 @@ module Liquid
   # forloop.last:: Returns true if the item is the last item.
   #
   class For < Block
-    Syntax = /(\w+)\s+in\s+(#{QuotedFragment}+)\s*(reversed)?/o
+    Syntax = /\A(#{VariableSegment}+)\s+in\s+(#{QuotedFragment}+)\s*(reversed)?/o
 
-    def initialize(tag_name, markup, tokens, context)
-      if markup =~ Syntax
-        @variable_name = $1
-        @collection_name = $2
-        @name = "#{$1}-#{$2}"
-        @reversed = $3
-        @attributes = {}
-        markup.scan(TagAttributes) do |key, value|
-          @attributes[key] = value
-        end
-      else
-        raise SyntaxError.new("Syntax Error in 'for loop' - Valid syntax: for [item] in [collection]")
-      end
-
+    def initialize(tag_name, markup, tokens, options)
+      parse_with_selected_parser(markup)
       @nodelist = @for_block = []
       super
     end
@@ -112,7 +100,7 @@ module Liquid
             'rindex'  => length - index,
             'rindex0' => length - index - 1,
             'first'   => (index == 0),
-            'last'    => (index == length - 1) }
+          'last'    => (index == length - 1) }
 
           result << render_all(@for_block, context)
 
@@ -125,6 +113,43 @@ module Liquid
         end
       end
       result
+    end
+
+    protected
+
+    def lax_parse(markup)
+      if markup =~ Syntax
+        @variable_name = $1
+        @collection_name = $2
+        @name = "#{$1}-#{$2}"
+        @reversed = $3
+        @attributes = {}
+        markup.scan(TagAttributes) do |key, value|
+          @attributes[key] = value
+        end
+      else
+        raise SyntaxError.new(options[:locale].t("errors.syntax.for"), line)
+      end
+    end
+
+    def strict_parse(markup)
+      p = Parser.new(markup)
+      @variable_name = p.consume(:id)
+      raise SyntaxError.new(options[:locale].t("errors.syntax.for_invalid_in"), line)  unless p.id?('in')
+      @collection_name = p.expression
+      @name = "#{@variable_name}-#{@collection_name}"
+      @reversed = p.id?('reversed')
+
+      @attributes = {}
+      while p.look(:id) && p.look(:colon, 1)
+        unless attribute = p.id?('limit') || p.id?('offset')
+          raise SyntaxError.new(options[:locale].t("errors.syntax.for_invalid_attribute"), line)
+        end
+        p.consume
+        val = p.expression
+        @attributes[attribute] = val
+      end
+      p.consume(:end_of_string)
     end
 
     private

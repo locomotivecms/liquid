@@ -10,65 +10,65 @@ module Liquid
     it "should parse and store filters" do
       var = Variable.new('hello | textileze')
       var.name.should == 'hello'
-      var.filters.should == [[:textileze,[]]]
+      var.filters.should == [['textileze',[]]]
 
       var = Variable.new('hello | textileze | paragraph')
       var.name.should == 'hello'
-      var.filters.should == [[:textileze,[]], [:paragraph,[]]]
+      var.filters.should == [['textileze',[]], ['paragraph',[]]]
 
       var = Variable.new(%! hello | strftime: '%Y'!)
       var.name.should == 'hello'
-      var.filters.should == [[:strftime,["'%Y'"]]]
+      var.filters.should == [['strftime',["'%Y'"]]]
 
       var = Variable.new(%! 'typo' | link_to: 'Typo', true !)
       var.name.should == %!'typo'!
-      var.filters.should == [[:link_to,["'Typo'", "true"]]]
+      var.filters.should == [['link_to',["'Typo'", "true"]]]
 
       var = Variable.new(%! 'typo' | link_to: 'Typo', false !)
       var.name.should == %!'typo'!
-      var.filters.should == [[:link_to,["'Typo'", "false"]]]
+      var.filters.should == [['link_to',["'Typo'", "false"]]]
 
       var = Variable.new(%! 'foo' | repeat: 3 !)
       var.name.should == %!'foo'!
-      var.filters.should == [[:repeat,["3"]]]
+      var.filters.should == [['repeat',["3"]]]
 
       var = Variable.new(%! 'foo' | repeat: 3, 3 !)
       var.name.should == %!'foo'!
-      var.filters.should == [[:repeat,["3","3"]]]
+      var.filters.should == [['repeat',["3","3"]]]
 
       var = Variable.new(%! 'foo' | repeat: 3, 3, 3 !)
       var.name.should == %!'foo'!
-      var.filters.should == [[:repeat,["3","3","3"]]]
+      var.filters.should == [['repeat',["3","3","3"]]]
 
       var = Variable.new(%! hello | strftime: '%Y, okay?'!)
       var.name.should == 'hello'
-      var.filters.should == [[:strftime,["'%Y, okay?'"]]]
+      var.filters.should == [['strftime',["'%Y, okay?'"]]]
 
       var = Variable.new(%! hello | things: "%Y, okay?", 'the other one'!)
       var.name.should == 'hello'
-      var.filters.should == [[:things,["\"%Y, okay?\"","'the other one'"]]]
+      var.filters.should == [['things',["\"%Y, okay?\"","'the other one'"]]]
     end
 
     it "should store filters with parameters" do
       var = Variable.new(%! '2006-06-06' | date: "%m/%d/%Y"!)
       var.name.should == "'2006-06-06'"
-      var.filters.should == [[:date,["\"%m/%d/%Y\""]]]
+      var.filters.should == [['date',["\"%m/%d/%Y\""]]]
     end
 
     it "should allow filters without whitespace" do
       var = Variable.new('hello | textileze | paragraph')
       var.name.should == 'hello'
-      var.filters.should == [[:textileze,[]], [:paragraph,[]]]
+      var.filters.should == [['textileze',[]], ['paragraph',[]]]
 
       var = Variable.new('hello|textileze|paragraph')
       var.name.should == 'hello'
-      var.filters.should == [[:textileze,[]], [:paragraph,[]]]
+      var.filters.should == [['textileze',[]], ['paragraph',[]]]
     end
 
     it "should allow special characters" do
       var = Variable.new("http://disney.com/logo.gif | image: 'med' ")
       var.name.should == 'http://disney.com/logo.gif'
-      var.filters.should == [[:image,["'med'"]]]
+      var.filters.should == [['image',["'med'"]]]
     end
 
     it "should allow double quoted strings" do

@@ -19,7 +19,7 @@ module Liquid
   #    Hello: -3
   #
   class Decrement < Tag
-    def initialize(tag_name, markup, tokens, context)
+    def initialize(tag_name, markup, tokens, options)
       @variable = markup.strip
 
       super

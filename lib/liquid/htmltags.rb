@@ -2,7 +2,7 @@ module Liquid
   class TableRow < Block
     Syntax = /(\w+)\s+in\s+(#{QuotedFragment}+)/o
 
-    def initialize(tag_name, markup, tokens, context)
+    def initialize(tag_name, markup, tokens, options)
       if markup =~ Syntax
         @variable_name = $1
         @collection_name = $2
@@ -11,7 +11,7 @@ module Liquid
           @attributes[key] = value
         end
       else
-        raise SyntaxError.new("Syntax Error in 'table_row loop' - Valid syntax: table_row [item] in [collection] cols=3")
+        raise SyntaxError.new(options[:locale].t("errors.syntax.table_row"), options[:line])
       end
 
       super
@@ -57,7 +57,7 @@ module Liquid
 
           result << "<td class=\"col#{col}\">" << render_all(@nodelist, context) << '</td>'
 
-          if col == cols and not (index == length - 1)
+          if col == cols and (index != length - 1)
             col  = 0
             row += 1
             result << "</tr>\n<tr class=\"row#{row}\">"

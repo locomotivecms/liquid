@@ -14,11 +14,11 @@ module Liquid
   class Capture < Block
     Syntax = /(\w+)/
 
-    def initialize(tag_name, markup, tokens, context)
+    def initialize(tag_name, markup, tokens, options)
       if markup =~ Syntax
         @to = $1
       else
-        raise SyntaxError.new("Syntax Error in 'capture' - Valid syntax: capture [var]")
+        raise SyntaxError.new(options[:locale].t("errors.syntax.capture"), options[:line])
       end
 
       super
@@ -27,7 +27,12 @@ module Liquid
     def render(context)
       output = super
       context.scopes.last[@to] = output
+      context.resource_limits[:assign_score_current] += (output.respond_to?(:length) ? output.length : 1)
       ''
+    end
+
+    def blank?
+      true
     end
   end
 

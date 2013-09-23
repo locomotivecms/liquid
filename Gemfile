@@ -1,4 +1,4 @@
-source :rubygems
+source 'https://rubygems.org'
 
 gem 'rake',     '~> 0.9.2'
 gem 'rspec',    '~> 2.6'    #>= 2.0.0.beta.22"

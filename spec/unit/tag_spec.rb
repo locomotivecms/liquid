@@ -27,7 +27,7 @@ module Liquid
       end
 
       it "should store context at parse time" do
-        @tag.context[:foo].should == "bar"
+        @tag.options[:foo].should == "bar"
       end
     end
 

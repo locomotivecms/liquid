@@ -8,14 +8,14 @@ module Liquid
   class Extends < Block
     Syntax = /(#{QuotedFragment}+)/
 
-    def initialize(tag_name, markup, tokens, context)
+    def initialize(tag_name, markup, tokens, options)
       if markup =~ Syntax
         @template_name = $1.gsub(/["']/o, '').strip
       else
-        raise SyntaxError.new("Error in tag 'extends' - Valid syntax: extends [template]")
+        raise(SyntaxError.new(options[:locale].t("errors.syntax.extends")), options[:line])
       end
 
-      @context = context
+      @options = options
 
       @parent_template = parse_parent_template
 
@@ -27,7 +27,7 @@ module Liquid
     end
 
     def prepare_parsing
-      @context.merge!(:blocks => self.find_blocks(@parent_template.root.nodelist))
+      @options.merge!(:blocks => self.find_blocks(@parent_template.root.nodelist))
     end
 
     def end_tag
@@ -35,6 +35,10 @@ module Liquid
       @nodelist = @parent_template.root.nodelist.clone
 
       @parent_template = nil # no need to keep it
+    end
+
+    def blank?
+      false
     end
 
     protected

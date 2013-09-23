@@ -3,13 +3,14 @@ module Liquid
     Syntax     = /(#{QuotedFragment})/o
     WhenSyntax = /(#{QuotedFragment})(?:(?:\s+or\s+|\s*\,\s*)(#{QuotedFragment}.*))?/o
 
-    def initialize(tag_name, markup, tokens, context)
+
+    def initialize(tag_name, markup, tokens, options)
       @blocks = []
 
       if markup =~ Syntax
         @left = $1
       else
-        raise SyntaxError.new("Syntax Error in tag 'case' - Valid syntax: case [condition]")
+        raise SyntaxError.new(options[:locale].t("errors.syntax.case"), options[:line])
       end
 
       super
@@ -50,7 +51,7 @@ module Liquid
       while markup
         # Create a new nodelist and assign it to the new block
         if not markup =~ WhenSyntax
-          raise SyntaxError.new("Syntax Error in tag 'case' - Valid when condition: {% when [condition] [or condition2...] %} ")
+          raise SyntaxError.new(options[:locale].t("errors.syntax.case_invalid_when"), line)
         end
 
         markup = $2
@@ -62,17 +63,14 @@ module Liquid
     end
 
     def record_else_condition(markup)
-
       if not markup.strip.empty?
-        raise SyntaxError.new("Syntax Error in tag 'case' - Valid else condition: {% else %} (no parameters) ")
+        raise SyntaxError.new(options[:locale].t("errors.syntax.case_invalid_else"), line)
       end
 
       block = ElseCondition.new
       block.attach(@nodelist)
       @blocks << block
     end
-
-
   end
 
   Template.register_tag('case', Case)

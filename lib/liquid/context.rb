@@ -13,17 +13,24 @@ module Liquid
   #
   #   context['bob']  #=> nil  class Context
   class Context
-    attr_reader :scopes, :errors, :registers, :environments
+    attr_reader :scopes, :errors, :registers, :environments, :resource_limits
 
-    def initialize(environments = {}, outer_scope = {}, registers = {}, rethrow_errors = false)
-      @environments   = [environments].flatten
-      @scopes         = [(outer_scope || {})]
-      @registers      = registers
-      @errors         = []
-      @rethrow_errors = rethrow_errors
+    def initialize(environments = {}, outer_scope = {}, registers = {}, rethrow_errors = false, resource_limits = {})
+      @environments    = [environments].flatten
+      @scopes          = [(outer_scope || {})]
+      @registers       = registers
+      @errors          = []
+      @rethrow_errors  = rethrow_errors
+      @resource_limits = (resource_limits || {}).merge!({ :render_score_current => 0, :assign_score_current => 0 })
       squash_instance_assigns_with_environments
 
       @interrupts = []
+    end
+
+    def resource_limits_reached?
+      (@resource_limits[:render_length_limit] && @resource_limits[:render_length_current] > @resource_limits[:render_length_limit]) ||
+      (@resource_limits[:render_score_limit]  && @resource_limits[:render_score_current]  > @resource_limits[:render_score_limit] ) ||
+      (@resource_limits[:assign_score_limit]  && @resource_limits[:assign_score_current]  > @resource_limits[:assign_score_limit] )
     end
 
     def strainer
@@ -39,13 +46,14 @@ module Liquid
 
       filters.each do |f|
         raise ArgumentError, "Expected module but got: #{f.class}" unless f.is_a?(Module)
+        Strainer.add_known_filter(f)
         strainer.extend(f)
       end
     end
 
     # are there any not handled interrupts?
     def has_interrupt?
-      !@interrupts.empty?
+      @interrupts.any?
     end
 
     # push an interrupt to the stack. this interrupt is considered not handled.
@@ -71,11 +79,7 @@ module Liquid
     end
 
     def invoke(method, *args)
-      if strainer.respond_to?(method)
-        strainer.__send__(method, *args)
-      else
-        args.first
-      end
+      strainer.invoke(method, *args)
     end
 
     # Push new local scope on the stack. use <tt>Context#stack</tt> instead
@@ -169,6 +173,7 @@ module Liquid
       # Fetches an object starting at the local scope and then moving up the hierachy
       def find_variable(key)
         scope = @scopes.find { |s| s.has_key?(key) }
+        variable = nil
 
         if scope.nil?
           @environments.each do |e|

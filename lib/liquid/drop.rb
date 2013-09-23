@@ -1,3 +1,5 @@
+require 'set'
+
 module Liquid
 
   # A drop in liquid is a class which allows you to export DOM like things to liquid.
@@ -31,8 +33,8 @@ module Liquid
 
     # called by liquid to invoke a drop
     def invoke_drop(method_or_key)
-      if method_or_key && method_or_key != EMPTY_STRING && self.class.public_method_defined?(method_or_key.to_s.to_sym)
-        send(method_or_key.to_s.to_sym)
+      if method_or_key && method_or_key != EMPTY_STRING && self.class.invokable?(method_or_key)
+        send(method_or_key)
       else
         before_method(method_or_key)
       end
@@ -42,10 +44,31 @@ module Liquid
       true
     end
 
+    def inspect
+      self.class.to_s
+    end
+
     def to_liquid
       self
     end
 
     alias :[] :invoke_drop
+
+    private
+
+    # Check for method existence without invoking respond_to?, which creates symbols
+    def self.invokable?(method_name)
+      unless @invokable_methods
+        # Ruby 1.8 compatibility: call to_s on method names (which are strings in 1.8, but already symbols in 1.9)
+        blacklist = (Liquid::Drop.public_instance_methods + [:each]).map(&:to_s)
+        if include?(Enumerable)
+          blacklist += Enumerable.public_instance_methods.map(&:to_s)
+          blacklist -= [:sort, :count, :first, :min, :max, :include?].map(&:to_s)
+        end
+        whitelist = [:to_liquid] + (public_instance_methods.map(&:to_s) - blacklist.map(&:to_s))
+        @invokable_methods = Set.new(whitelist.map(&:to_s))
+      end
+      @invokable_methods.include?(method_name.to_s)
+    end
   end
 end
