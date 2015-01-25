@@ -1,6 +1,7 @@
 source 'https://rubygems.org'
 
-gemspec
+gemspec name: 'locomotivecms-liquid'
+
 gem 'stackprof', platforms: :mri_21
 
 group :test do
