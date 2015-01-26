@@ -39,8 +39,8 @@ end
 task :release => :build do
   system "git tag -a v#{Liquid::VERSION} -m 'Tagging #{Liquid::VERSION}'"
   system "git push --tags"
-  system "gem push liquid-#{Liquid::VERSION}.gem"
-  system "rm liquid-#{Liquid::VERSION}.gem"
+  system "gem push locomotivecms-liquid-#{Liquid::VERSION}.gem"
+  system "rm locomotive-liquid-#{Liquid::VERSION}.gem"
 end
 
 namespace :benchmark do
