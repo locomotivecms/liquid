@@ -34,6 +34,11 @@ class ExtendsTagTest < Minitest::Test
     Liquid::Template.file_system = LayoutFileSystem.new
   end
 
+  def test_template_with_a_block
+    assert_template_result "<body><h1>Hello</h1><p>Lorem ipsum</p></body>",
+      Liquid::Template.file_system.read_template_file('page_with_title', nil)
+  end
+
   def test_template_extends_another_template
     assert_template_result "<body>base</body>",
       "{% extends base %}"

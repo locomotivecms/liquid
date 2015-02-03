@@ -29,7 +29,7 @@ end
 
 task :gem => :build
 task :build do
-  system "gem build liquid.gemspec"
+  system "gem build locomotivecms-liquid.gemspec"
 end
 
 task :install => :build do
@@ -40,7 +40,7 @@ task :release => :build do
   system "git tag -a v#{Liquid::VERSION} -m 'Tagging #{Liquid::VERSION}'"
   system "git push --tags"
   system "gem push locomotivecms-liquid-#{Liquid::VERSION}.gem"
-  system "rm locomotive-liquid-#{Liquid::VERSION}.gem"
+  system "rm locomotivecms-liquid-#{Liquid::VERSION}.gem"
 end
 
 namespace :benchmark do

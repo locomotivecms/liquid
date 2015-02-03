@@ -29,33 +29,33 @@ module Liquid
 
     def prepare_for_inheritance
       # give a different name if this is a nested block
-      if block = options[:inherited_blocks][:nested].last
+      if block = inherited_blocks[:nested].last
         @name = "#{block.name}/#{@name}"
       end
 
       # append this block to the stack in order to
       # get a name for the other nested inherited blocks
-      options[:inherited_blocks][:nested].push(self)
+      inherited_blocks[:nested].push(self)
 
       # build the linked chain of inherited blocks
       # make a link with the descendant and the parent (chained list)
-      if descendant = options[:inherited_blocks][:all][@name]
+      if descendant = inherited_blocks[:all][@name]
         self.descendant   = descendant
         descendant.parent = self
 
         # get the value of the blank property from the descendant
-        @blank = descendant.blank? #false
+        @blank = descendant.blank?
       end
 
       # become the descendant of the inherited block from the parent template
-      options[:inherited_blocks][:all][@name] = self
+      inherited_blocks[:all][@name] = self
     end
 
     def parse(tokens)
       super
 
       # when the parsing of the block is done, we can then remove it from the stack
-      options[:inherited_blocks][:nested].pop
+      inherited_blocks[:nested].pop
     end
 
     alias_method :render_without_inheritance, :render
@@ -91,6 +91,13 @@ module Liquid
       else
         ''
       end
+    end
+
+    def inherited_blocks
+      options[:inherited_blocks] || {
+        all:    {},
+        nested: []
+      }
     end
 
   end
