@@ -65,10 +65,8 @@ module Liquid
         # look for the very first descendant
         block = self_or_first_descendant
 
-        if block != self
-          # the block drop is in charge of rendering "{{ block.super }}"
-          context['block'] = InheritedBlockDrop.new(block)
-        end
+        # the block drop is in charge of rendering "{{ block.super }}"
+        context['block'] = InheritedBlockDrop.new(block)
 
         block.render_without_inheritance(context)
       end
@@ -94,7 +92,8 @@ module Liquid
     end
 
     def inherited_blocks
-      options[:inherited_blocks] || {
+      # initialize it in the case the template does not include an extend tag
+      options[:inherited_blocks] ||= {
         all:    {},
         nested: []
       }
