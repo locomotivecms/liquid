@@ -96,7 +96,11 @@ module Liquid
         end
       end
 
-      output.join
+      # Prevent the following error:
+      #   Encoding::CompatibilityError: incompatible character encodings: ASCII-8BIT and UTF-8
+      utf8_ouput = output.map { |str| str.encode(Encoding::UTF_8, invalid: :replace, undef: :replace, replace: "") }
+
+      utf8_ouput.join("")
     end
 
     private
