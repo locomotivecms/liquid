@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'test_helper'
 
 class ContinueTagTest < Minitest::Test
@@ -12,5 +14,4 @@ class ContinueTagTest < Minitest::Test
 
     assert_template_result(expected, markup, assigns)
   end
-
 end

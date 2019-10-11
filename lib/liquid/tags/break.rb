@@ -1,5 +1,6 @@
-module Liquid
+# frozen_string_literal: true
 
+module Liquid
   # Break tag to be used to break out of a for loop.
   #
   # == Basic Usage:
@@ -10,12 +11,10 @@ module Liquid
   #    {% endfor %}
   #
   class Break < Tag
-
     def interrupt
       BreakInterrupt.new
     end
-
   end
 
-  Template.register_tag('break'.freeze, Break)
+  Template.register_tag('break', Break)
 end

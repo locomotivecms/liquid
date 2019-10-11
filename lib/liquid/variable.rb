@@ -1,5 +1,6 @@
-module Liquid
+# frozen_string_literal: true
 
+module Liquid
   # Holds variables. Variables are only loaded "just in time"
   # and are not evaluated as part of the render stage
   #
@@ -11,15 +12,23 @@ module Liquid
   #   {{ user | link }}
   #
   class Variable
+    FilterMarkupRegex = /#{FilterSeparator}\s*(.*)/om
     FilterParser = /(?:\s+|#{QuotedFragment}|#{ArgumentSeparator})+/o
-    attr_accessor :filters, :name, :warnings
-    attr_accessor :line_number
+    FilterArgsRegex = /(?:#{FilterArgumentSeparator}|#{ArgumentSeparator})\s*((?:\w+\s*\:\s*)?#{QuotedFragment})/o
+    JustTagAttributes = /\A#{TagAttributes}\z/o
+    MarkupWithQuotedFragment = /(#{QuotedFragment})(.*)/om
+
+    attr_accessor :filters, :name, :line_number
+    attr_reader :parse_context
+    alias_method :options, :parse_context
+
     include ParserSwitching
 
-    def initialize(markup, options = {})
+    def initialize(markup, parse_context)
       @markup  = markup
       @name    = nil
-      @options = options || {}
+      @parse_context = parse_context
+      @line_number = parse_context.line_number
 
       parse_with_selected_parser(markup)
     end
@@ -34,19 +43,18 @@ module Liquid
 
     def lax_parse(markup)
       @filters = []
-      if markup =~ /(#{QuotedFragment})(.*)/om
-        name_markup = $1
-        filter_markup = $2
-        @name = Expression.parse(name_markup)
-        if filter_markup =~ /#{FilterSeparator}\s*(.*)/om
-          filters = $1.scan(FilterParser)
-          filters.each do |f|
-            if f =~ /\w+/
-              filtername = Regexp.last_match(0)
-              filterargs = f.scan(/(?:#{FilterArgumentSeparator}|#{ArgumentSeparator})\s*((?:\w+\s*\:\s*)?#{QuotedFragment})/o).flatten
-              @filters << parse_filter_expressions(filtername, filterargs)
-            end
-          end
+      return unless markup =~ MarkupWithQuotedFragment
+
+      name_markup = Regexp.last_match(1)
+      filter_markup = Regexp.last_match(2)
+      @name = Expression.parse(name_markup)
+      if filter_markup =~ FilterMarkupRegex
+        filters = Regexp.last_match(1).scan(FilterParser)
+        filters.each do |f|
+          next unless f =~ /\w+/
+          filtername = Regexp.last_match(0)
+          filterargs = f.scan(FilterArgsRegex).flatten
+          @filters << parse_filter_expressions(filtername, filterargs)
         end
       end
     end
@@ -68,38 +76,62 @@ module Liquid
       # first argument
       filterargs = [p.argument]
       # followed by comma separated others
-      while p.consume?(:comma)
-        filterargs << p.argument
-      end
+      filterargs << p.argument while p.consume?(:comma)
       filterargs
     end
 
     def render(context)
-      @filters.inject(context.evaluate(@name)) do |output, (filter_name, filter_args, filter_kwargs)|
+      obj = @filters.inject(context.evaluate(@name)) do |output, (filter_name, filter_args, filter_kwargs)|
         filter_args = evaluate_filter_expressions(context, filter_args, filter_kwargs)
-        output = context.invoke(filter_name, output, *filter_args)
-      end.tap{ |obj| taint_check(obj) }
+        context.invoke(filter_name, output, *filter_args)
+      end
+
+      obj = context.apply_global_filter(obj)
+      taint_check(context, obj)
+      obj
+    end
+
+    def render_to_output_buffer(context, output)
+      obj = render(context)
+
+      if obj.is_a?(Array)
+        output << obj.join
+      elsif obj.nil?
+      else
+        output << obj.to_s
+      end
+
+      output
+    end
+
+    def disabled?(_context)
+      false
+    end
+
+    def disabled_tags
+      []
     end
 
     private
 
     def parse_filter_expressions(filter_name, unparsed_args)
       filter_args = []
-      keyword_args = {}
+      keyword_args = nil
       unparsed_args.each do |a|
-        if matches = a.match(/\A#{TagAttributes}\z/o)
+        if (matches = a.match(JustTagAttributes))
+          keyword_args ||= {}
           keyword_args[matches[1]] = Expression.parse(matches[2])
         else
           filter_args << Expression.parse(a)
         end
       end
       result = [filter_name, filter_args]
-      result << keyword_args unless keyword_args.empty?
+      result << keyword_args if keyword_args
       result
     end
 
     def evaluate_filter_expressions(context, filter_args, filter_kwargs)
-      parsed_args = filter_args.map{ |expr| context.evaluate(expr) }
+      parsed_args = filter_args.map { |expr| context.evaluate(expr) }
       if filter_kwargs
         parsed_kwargs = {}
         filter_kwargs.each do |key, expr|
@@ -110,17 +142,28 @@ module Liquid
       parsed_args
     end
 
-    def taint_check(obj)
-      if obj.tainted?
-        @markup =~ QuotedFragment
-        name = Regexp.last_match(0)
-        case Template.taint_mode
-        when :warn
-          @warnings ||= []
-          @warnings << "variable '#{name}' is tainted and was not escaped"
-        when :error
-          raise TaintedError, "Error - variable '#{name}' is tainted and was not escaped"
-        end
+    def taint_check(context, obj)
+      return unless obj.tainted?
+      return if Template.taint_mode == :lax
+
+      @markup =~ QuotedFragment
+      name = Regexp.last_match(0)
+
+      error = TaintedError.new("variable '#{name}' is tainted and was not escaped")
+      error.line_number = line_number
+      error.template_name = context.template_name
+
+      case Template.taint_mode
+      when :warn
+        context.warnings << error
+      when :error
+        raise error
+      end
+    end
+
+    class ParseTreeVisitor < Liquid::ParseTreeVisitor
+      def children
+        [@node.name] + @node.filters.flatten
       end
     end
   end

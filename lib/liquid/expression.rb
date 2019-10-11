@@ -1,33 +1,51 @@
+# frozen_string_literal: true
+
 module Liquid
   class Expression
+    class MethodLiteral
+      attr_reader :method_name, :to_s
+
+      def initialize(method_name, to_s)
+        @method_name = method_name
+        @to_s = to_s
+      end
+
+      def to_liquid
+        to_s
+      end
+    end
+
     LITERALS = {
-      nil => nil, 'nil'.freeze => nil, 'null'.freeze => nil, ''.freeze => nil,
-      'true'.freeze  => true,
-      'false'.freeze => false,
-      'blank'.freeze => :blank?,
-      'empty'.freeze => :empty?
-    }
+      nil => nil, 'nil' => nil, 'null' => nil, '' => nil,
+      'true' => true,
+      'false' => false,
+      'blank' => MethodLiteral.new(:blank?, '').freeze,
+      'empty' => MethodLiteral.new(:empty?, '').freeze
+    }.freeze
+
+    SINGLE_QUOTED_STRING = /\A'(.*)'\z/m
+    DOUBLE_QUOTED_STRING = /\A"(.*)"\z/m
+    INTEGERS_REGEX       = /\A(-?\d+)\z/
+    FLOATS_REGEX         = /\A(-?\d[\d\.]+)\z/
+    RANGES_REGEX         = /\A\((\S+)\.\.(\S+)\)\z/
 
     def self.parse(markup)
       if LITERALS.key?(markup)
         LITERALS[markup]
       else
         case markup
-        when /\A'(.*)'\z/m # Single quoted strings
-          $1
-        when /\A"(.*)"\z/m # Double quoted strings
-          $1
-        when /\A(-?\d+)\z/ # Integer and floats
-          $1.to_i
-        when /\A\((\S+)\.\.(\S+)\)\z/ # Ranges
-          RangeLookup.parse($1, $2)
-        when /\A(-?\d[\d\.]+)\z/ # Floats
-          $1.to_f
+        when SINGLE_QUOTED_STRING, DOUBLE_QUOTED_STRING
+          Regexp.last_match(1)
+        when INTEGERS_REGEX
+          Regexp.last_match(1).to_i
+        when RANGES_REGEX
+          RangeLookup.parse(Regexp.last_match(1), Regexp.last_match(2))
+        when FLOATS_REGEX
+          Regexp.last_match(1).to_f
         else
           VariableLookup.parse(markup)
         end
       end
     end
-
   end
 end

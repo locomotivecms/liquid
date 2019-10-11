@@ -1,5 +1,6 @@
-module Liquid
+# frozen_string_literal: true
 
+module Liquid
   # "For" iterates over an array or collection.
   # Several useful variables are available to you within the loop.
   #
@@ -24,7 +25,7 @@ module Liquid
   #      {{ item.name }}
   #    {% end %}
   #
-  #  To reverse the for loop simply use {% for item in collection reversed %}
+  #  To reverse the for loop simply use {% for item in collection reversed %} (note that the flag's spelling is different to the filter `reverse`)
   #
   # == Available variables:
   #
@@ -42,20 +43,24 @@ module Liquid
   #                   where 0 is the last item.
   # forloop.first:: Returns true if the item is the first item.
   # forloop.last:: Returns true if the item is the last item.
+  # forloop.parentloop:: Provides access to the parent loop, if present.
   #
   class For < Block
     Syntax = /\A(#{VariableSegment}+)\s+in\s+(#{QuotedFragment}+)\s*(reversed)?/o
 
+    attr_reader :collection_name, :variable_name, :limit, :from
+
     def initialize(tag_name, markup, options)
       super
+      @from = @limit = nil
       parse_with_selected_parser(markup)
       @for_block = BlockBody.new
+      @else_block = nil
     end
 
     def parse(tokens)
-      if more = parse_body(@for_block, tokens)
-        parse_body(@else_block, tokens)
-      end
+      return unless parse_body(@for_block, tokens)
+      parse_body(@else_block, tokens)
     end
 
     def nodelist
@@ -63,97 +68,51 @@ module Liquid
     end
 
     def unknown_tag(tag, markup, tokens)
-      return super unless tag == 'else'.freeze
+      return super unless tag == 'else'
       @else_block = BlockBody.new
     end
 
-    def render(context)
-      context.registers[:for] ||= Hash.new(0)
+    def render_to_output_buffer(context, output)
+      segment = collection_segment(context)
 
-      collection = context.evaluate(@collection_name)
-      collection = collection.to_a if collection.is_a?(Range)
-
-      # Maintains Ruby 1.8.7 String#each behaviour on 1.9
-      return render_else(context) unless iterable?(collection)
-
-      from = if @from == :continue
-        context.registers[:for][@name].to_i
+      if segment.empty?
+        render_else(context, output)
       else
-        context.evaluate(@from).to_i
+        render_segment(context, output, segment)
       end
 
-      limit = context.evaluate(@limit)
-      to    = limit ? limit.to_i + from : nil
-
-      segment = Utils.slice_collection(collection, from, to)
-
-      return render_else(context) if segment.empty?
-
-      segment.reverse! if @reversed
-
-      result = ''
-
-      length = segment.length
-
-      # Store our progress through the collection for the continue flag
-      context.registers[:for][@name] = from + segment.length
-
-      context.stack do
-        segment.each_with_index do |item, index|
-          context[@variable_name] = item
-          context['forloop'.freeze] = {
-            'name'.freeze    => @name,
-            'length'.freeze  => length,
-            'index'.freeze   => index + 1,
-            'index0'.freeze  => index,
-            'rindex'.freeze  => length - index,
-            'rindex0'.freeze => length - index - 1,
-            'first'.freeze   => (index == 0),
-            'last'.freeze    => (index == length - 1)
-          }
-
-          result << @for_block.render(context)
-
-          # Handle any interrupts if they exist.
-          if context.has_interrupt?
-            interrupt = context.pop_interrupt
-            break if interrupt.is_a? BreakInterrupt
-            next if interrupt.is_a? ContinueInterrupt
-          end
-        end
-      end
-      result
+      output
     end
 
     protected
 
     def lax_parse(markup)
       if markup =~ Syntax
-        @variable_name = $1
-        collection_name = $2
-        @reversed = $3
+        @variable_name = Regexp.last_match(1)
+        collection_name = Regexp.last_match(2)
+        @reversed = !!Regexp.last_match(3)
         @name = "#{@variable_name}-#{collection_name}"
         @collection_name = Expression.parse(collection_name)
         markup.scan(TagAttributes) do |key, value|
           set_attribute(key, value)
         end
       else
-        raise SyntaxError.new(options[:locale].t("errors.syntax.for".freeze))
+        raise SyntaxError, options[:locale].t("errors.syntax.for")
       end
     end
 
     def strict_parse(markup)
       p = Parser.new(markup)
       @variable_name = p.consume(:id)
-      raise SyntaxError.new(options[:locale].t("errors.syntax.for_invalid_in".freeze))  unless p.id?('in'.freeze)
+      raise SyntaxError, options[:locale].t("errors.syntax.for_invalid_in") unless p.id?('in')
       collection_name = p.expression
       @name = "#{@variable_name}-#{collection_name}"
       @collection_name = Expression.parse(collection_name)
-      @reversed = p.id?('reversed'.freeze)
+      @reversed = p.id?('reversed')
 
       while p.look(:id) && p.look(:colon, 1)
-        unless attribute = p.id?('limit'.freeze) || p.id?('offset'.freeze)
-          raise SyntaxError.new(options[:locale].t("errors.syntax.for_invalid_attribute".freeze))
+        unless (attribute = p.id?('limit') || p.id?('offset'))
+          raise SyntaxError, options[:locale].t("errors.syntax.for_invalid_attribute")
         end
         p.consume
         set_attribute(attribute, p.expression)
@@ -163,27 +122,96 @@ module Liquid
 
     private
 
+    def collection_segment(context)
+      offsets = context.registers[:for] ||= {}
+
+      from = if @from == :continue
+        offsets[@name].to_i
+      else
+        from_value = context.evaluate(@from)
+        if from_value.nil?
+          0
+        else
+          Utils.to_integer(from_value)
+        end
+      end
+
+      collection = context.evaluate(@collection_name)
+      collection = collection.to_a if collection.is_a?(Range)
+
+      limit_value = context.evaluate(@limit)
+      to = if limit_value.nil?
+        nil
+      else
+        Utils.to_integer(limit_value) + from
+      end
+
+      segment = Utils.slice_collection(collection, from, to)
+      segment.reverse! if @reversed
+
+      offsets[@name] = from + segment.length
+
+      segment
+    end
+
+    def render_segment(context, output, segment)
+      for_stack = context.registers[:for_stack] ||= []
+      length = segment.length
+
+      context.stack do
+        loop_vars = Liquid::ForloopDrop.new(@name, length, for_stack[-1])
+
+        for_stack.push(loop_vars)
+
+        begin
+          context['forloop'] = loop_vars
+
+          segment.each do |item|
+            context[@variable_name] = item
+            @for_block.render_to_output_buffer(context, output)
+            loop_vars.send(:increment!)
+
+            # Handle any interrupts if they exist.
+            next unless context.interrupt?
+            interrupt = context.pop_interrupt
+            break if interrupt.is_a?(BreakInterrupt)
+            next if interrupt.is_a?(ContinueInterrupt)
+          end
+        ensure
+          for_stack.pop
+        end
+      end
+
+      output
+    end
+
     def set_attribute(key, expr)
       case key
-      when 'offset'.freeze
-        @from = if expr == 'continue'.freeze
+      when 'offset'
+        @from = if expr == 'continue'
           :continue
         else
           Expression.parse(expr)
         end
-      when 'limit'.freeze
+      when 'limit'
         @limit = Expression.parse(expr)
       end
     end
 
-    def render_else(context)
-      @else_block ? @else_block.render(context) : ''.freeze
+    def render_else(context, output)
+      if @else_block
+        @else_block.render_to_output_buffer(context, output)
+      else
+        output
+      end
     end
 
-    def iterable?(collection)
-      collection.respond_to?(:each) || Utils.non_blank_string?(collection)
+    class ParseTreeVisitor < Liquid::ParseTreeVisitor
+      def children
+        (super + [@node.limit, @node.from, @node.collection_name]).compact
+      end
     end
   end
 
-  Template.register_tag('for'.freeze, For)
+  Template.register_tag('for', For)
 end

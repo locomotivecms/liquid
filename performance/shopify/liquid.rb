@@ -1,19 +1,21 @@
-$:.unshift File.dirname(__FILE__) + '/../../lib'
-require File.dirname(__FILE__) + '/../../lib/liquid'
+# frozen_string_literal: true
 
-require File.dirname(__FILE__) + '/comment_form'
-require File.dirname(__FILE__) + '/paginate'
-require File.dirname(__FILE__) + '/json_filter'
-require File.dirname(__FILE__) + '/money_filter'
-require File.dirname(__FILE__) + '/shop_filter'
-require File.dirname(__FILE__) + '/tag_filter'
-require File.dirname(__FILE__) + '/weight_filter'
+$LOAD_PATH.unshift(__dir__ + '/../../lib')
+require_relative '../../lib/liquid'
 
-Liquid::Template.register_tag 'paginate', Paginate
-Liquid::Template.register_tag 'form', CommentForm
+require_relative 'comment_form'
+require_relative 'paginate'
+require_relative 'json_filter'
+require_relative 'money_filter'
+require_relative 'shop_filter'
+require_relative 'tag_filter'
+require_relative 'weight_filter'
 
-Liquid::Template.register_filter JsonFilter
-Liquid::Template.register_filter MoneyFilter
-Liquid::Template.register_filter WeightFilter
-Liquid::Template.register_filter ShopFilter
-Liquid::Template.register_filter TagFilter
+Liquid::Template.register_tag('paginate', Paginate)
+Liquid::Template.register_tag('form', CommentForm)
+
+Liquid::Template.register_filter(JsonFilter)
+Liquid::Template.register_filter(MoneyFilter)
+Liquid::Template.register_filter(WeightFilter)
+Liquid::Template.register_filter(ShopFilter)
+Liquid::Template.register_filter(TagFilter)

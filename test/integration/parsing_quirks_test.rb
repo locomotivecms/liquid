@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'test_helper'
 
 class ParsingQuirksTest < Minitest::Test
@@ -5,7 +7,7 @@ class ParsingQuirksTest < Minitest::Test
 
   def test_parsing_css
     text = " div { font-weight: bold; } "
-    assert_equal text, Template.parse(text).render!
+    assert_equal(text, Template.parse(text).render!)
   end
 
   def test_raise_on_single_close_bracet
@@ -27,7 +29,7 @@ class ParsingQuirksTest < Minitest::Test
   end
 
   def test_error_on_empty_filter
-    assert Template.parse("{{test}}")
+    assert(Template.parse("{{test}}"))
 
     with_error_mode(:lax) do
       assert Template.parse("{{|test}}")
@@ -62,25 +64,25 @@ class ParsingQuirksTest < Minitest::Test
   end
 
   def test_no_error_on_lax_empty_filter
-    assert Template.parse("{{test |a|b|}}", :error_mode => :lax)
-    assert Template.parse("{{test}}", :error_mode => :lax)
-    assert Template.parse("{{|test|}}", :error_mode => :lax)
+    assert(Template.parse("{{test |a|b|}}", error_mode: :lax))
+    assert(Template.parse("{{test}}", error_mode: :lax))
+    assert(Template.parse("{{|test|}}", error_mode: :lax))
   end
 
   def test_meaningless_parens_lax
     with_error_mode(:lax) do
-      assigns = {'b' => 'bar', 'c' => 'baz'}
+      assigns = { 'b' => 'bar', 'c' => 'baz' }
       markup = "a == 'foo' or (b == 'bar' and c == 'baz') or false"
-      assert_template_result(' YES ',"{% if #{markup} %} YES {% endif %}", assigns)
+      assert_template_result(' YES ', "{% if #{markup} %} YES {% endif %}", assigns)
     end
   end
 
   def test_unexpected_characters_silently_eat_logic_lax
     with_error_mode(:lax) do
       markup = "true && false"
-      assert_template_result(' YES ',"{% if #{markup} %} YES {% endif %}")
+      assert_template_result(' YES ', "{% if #{markup} %} YES {% endif %}")
       markup = "false || true"
-      assert_template_result('',"{% if #{markup} %} YES {% endif %}")
+      assert_template_result('', "{% if #{markup} %} YES {% endif %}")
     end
   end
 
@@ -92,14 +94,14 @@ class ParsingQuirksTest < Minitest::Test
 
   def test_unanchored_filter_arguments
     with_error_mode(:lax) do
-      assert_template_result('hi',"{{ 'hi there' | split$$$:' ' | first }}")
+      assert_template_result('hi', "{{ 'hi there' | split$$$:' ' | first }}")
 
       assert_template_result('x', "{{ 'X' | downcase) }}")
 
       # After the messed up quotes a filter without parameters (reverse) should work
       # but one with parameters (remove) shouldn't be detected.
       assert_template_result('here',  "{{ 'hi there' | split:\"t\"\" | reverse | first}}")
-      assert_template_result('hi ',  "{{ 'hi there' | split:\"t\"\" | remove:\"i\" | first}}")
+      assert_template_result('hi ', "{{ 'hi there' | split:\"t\"\" | remove:\"i\" | first}}")
     end
   end
 
@@ -116,4 +118,7 @@ class ParsingQuirksTest < Minitest::Test
     end
   end
 
+  def test_contains_in_id
+    assert_template_result(' YES ', '{% if containsallshipments == true %} YES {% endif %}', 'containsallshipments' => true)
+  end
 end # ParsingQuirksTest

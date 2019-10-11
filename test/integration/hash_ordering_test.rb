@@ -1,18 +1,20 @@
+# frozen_string_literal: true
+
 require 'test_helper'
 
-module MoneyFilter
-  def money(input)
-    sprintf(' %d$ ', input)
-  end
-end
-
-module CanadianMoneyFilter
-  def money(input)
-    sprintf(' %d$ CAD ', input)
-  end
-end
-
 class HashOrderingTest < Minitest::Test
+  module MoneyFilter
+    def money(input)
+      format(' %d$ ', input)
+    end
+  end
+
+  module CanadianMoneyFilter
+    def money(input)
+      format(' %d$ CAD ', input)
+    end
+  end
+
   include Liquid
 
   def test_global_register_order

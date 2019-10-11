@@ -1,7 +1,8 @@
+# frozen_string_literal: true
+
 require 'liquid/profiler/hooks'
 
 module Liquid
-
   # Profiler enables support for profiling template rendering to help track down performance issues.
   #
   # To enable profiling, first require 'liquid/profiler'.
@@ -20,7 +21,7 @@ module Liquid
   # inside of <tt>{% include %}</tt> tags.
   #
   #   profile.each do |node|
-  #     # Access to the token itself
+  #     # Access to the node itself
   #     node.code
   #
   #     # Which template and line number of this node.
@@ -45,19 +46,17 @@ module Liquid
     include Enumerable
 
     class Timing
-      attr_reader :code, :partial, :line_number, :children
+      attr_reader :code, :partial, :line_number, :children, :total_time, :self_time
 
-      def initialize(token, partial)
-        @code        = token.respond_to?(:raw) ? token.raw : token
+      def initialize(node, partial)
+        @code        = node.respond_to?(:raw) ? node.raw : node
         @partial     = partial
-        @line_number = token.respond_to?(:line_number) ? token.line_number : nil
+        @line_number = node.respond_to?(:line_number) ? node.line_number : nil
         @children    = []
       end
 
-      def self.start(token, partial)
-        new(token, partial).tap do |t|
-          t.start
-        end
+      def self.start(node, partial)
+        new(node, partial).tap(&:start)
       end
 
       def start
@@ -66,6 +65,17 @@ module Liquid
 
       def finish
         @end_time = Time.now
+        @total_time = @end_time - @start_time
+
+        if @children.empty?
+          @self_time = @total_time
+        else
+          total_children_time = 0
+          @children.each do |child|
+            total_children_time += child.total_time
+          end
+          @self_time = @total_time - total_children_time
+        end
       end
 
       def render_time
@@ -73,11 +83,11 @@ module Liquid
       end
     end
 
-    def self.profile_token_render(token)
-      if Profiler.current_profile && token.respond_to?(:render)
-        Profiler.current_profile.start_token(token)
+    def self.profile_node_render(node)
+      if Profiler.current_profile && node.respond_to?(:render)
+        Profiler.current_profile.start_node(node)
         output = yield
-        Profiler.current_profile.end_token(token)
+        Profiler.current_profile.end_node(node)
         output
       else
         yield
@@ -99,8 +109,8 @@ module Liquid
       Thread.current[:liquid_profiler]
     end
 
-    def initialize
-      @partial_stack = ["<root>"]
+    def initialize(partial_name = "<root>")
+      @partial_stack = [partial_name]
 
       @root_timing = Timing.new("", current_partial)
       @timing_stack = [@root_timing]
@@ -135,11 +145,11 @@ module Liquid
       @root_timing.children.length
     end
 
-    def start_token(token)
-      @timing_stack.push(Timing.start(token, current_partial))
+    def start_node(node)
+      @timing_stack.push(Timing.start(node, current_partial))
     end
 
-    def end_token(token)
+    def end_node(_node)
       timing = @timing_stack.pop
       timing.finish
 
@@ -157,6 +167,5 @@ module Liquid
     def pop_partial
       @partial_stack.pop
     end
-
   end
 end

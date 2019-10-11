@@ -1,5 +1,6 @@
-module Liquid
+# frozen_string_literal: true
 
+module Liquid
   # Templates are central to liquid.
   # Interpretating templates is a two step process. First you compile the
   # source code you got. During compile time some extensive error checking is performed.
@@ -14,23 +15,21 @@ module Liquid
   #   template.render('user_name' => 'bob')
   #
   class Template
-    DEFAULT_OPTIONS = {
-      :locale => I18n.new
-    }
-
     attr_accessor :root
-    attr_reader :resource_limits
+    attr_reader :resource_limits, :warnings
 
     @@file_system = BlankFileSystem.new
 
     class TagRegistry
+      include Enumerable
+
       def initialize
-        @tags  = {}
+        @tags = {}
         @cache = {}
       end
 
       def [](tag_name)
-        return nil unless @tags.has_key?(tag_name)
+        return nil unless @tags.key?(tag_name)
         return @cache[tag_name] if Liquid.cache_classes
 
         lookup_class(@tags[tag_name]).tap { |o| @cache[tag_name] = o }
@@ -46,10 +45,14 @@ module Liquid
         @cache.delete(tag_name)
       end
 
+      def each(&block)
+        @tags.each(&block)
+      end
+
       private
 
       def lookup_class(name)
-        name.split("::").reject(&:empty?).reduce(Object) { |scope, const| scope.const_get(const) }
+        Object.const_get(name)
       end
     end
 
@@ -68,6 +71,11 @@ module Liquid
       # :error raises an error when tainted output is used
       attr_writer :taint_mode
 
+      attr_accessor :default_exception_renderer
+      Template.default_exception_renderer = lambda do |exception|
+        exception
+      end
+
       def file_system
         @@file_system
       end
@@ -84,12 +92,20 @@ module Liquid
         @tags ||= TagRegistry.new
       end
 
+      def add_register(name, klass)
+        registers[name.to_sym] = klass
+      end
+
+      def registers
+        @registers ||= {}
+      end
+
       def error_mode
-        @error_mode || :lax
+        @error_mode ||= :lax
       end
 
       def taint_mode
-        @taint_mode || :lax
+        @taint_mode ||= :lax
       end
 
       # Pass a module with filter methods which should be available
@@ -112,6 +128,7 @@ module Liquid
     end
 
     def initialize
+      @rethrow_errors = false
       @resource_limits = ResourceLimits.new(self.class.default_resource_limits)
     end
 
@@ -121,14 +138,10 @@ module Liquid
       @options = options
       @profiling = options[:profile]
       @line_numbers = options[:line_numbers] || @profiling
-      @root = Document.parse(tokenize(source), DEFAULT_OPTIONS.merge(options))
-      @warnings = nil
+      parse_context = options.is_a?(ParseContext) ? options : ParseContext.new(options)
+      @root = Document.parse(tokenize(source), parse_context)
+      @warnings = parse_context.warnings
       self
-    end
-
-    def warnings
-      return [] unless @root
-      @warnings ||= @root.warnings
     end
 
     def registers
@@ -162,14 +175,14 @@ module Liquid
     #    filters and tags and might be useful to integrate liquid more with its host application
     #
     def render(*args)
-      return ''.freeze if @root.nil?
+      return '' if @root.nil?
 
       context = case args.first
       when Liquid::Context
         c = args.shift
 
         if @rethrow_errors
-          c.exception_handler = ->(e) { true }
+          c.exception_renderer = ->(_e) { raise }
         end
 
         c
@@ -184,25 +197,26 @@ module Liquid
         raise ArgumentError, "Expected Hash or Liquid::Context as parameter"
       end
 
+      output = nil
+
+      context_register = context.registers.is_a?(StaticRegisters) ? context.registers.static : context.registers
+
       case args.last
       when Hash
         options = args.pop
+        output = options[:output] if options[:output]
 
-        if options[:registers].is_a?(Hash)
-          self.registers.merge!(options[:registers])
+        options[:registers]&.each do |key, register|
+          context_register[key] = register
         end
 
-        if options[:filters]
-          context.add_filters(options[:filters])
-        end
-
-        if options[:exception_handler]
-          context.exception_handler = options[:exception_handler]
-        end
-      when Module
+        apply_options_to_context(context, options)
+      when Module, Array
         context.add_filters(args.pop)
-      when Array
-        context.add_filters(args.pop)
+      end
+
+      Template.registers.each do |key, register|
+        context_register[key] = register
       end
 
       # Retrying a render resets resource usage
@@ -211,10 +225,9 @@ module Liquid
       begin
         # render the nodelist.
         # for performance reasons we get an array back here. join will make a string out of it.
-        result = with_profiling do
-          @root.render(context)
+        with_profiling(context) do
+          @root.render_to_output_buffer(context, output || +'')
         end
-        result.respond_to?(:join) ? result.join : result
       rescue Liquid::MemoryError => e
         context.handle_error(e)
       ensure
@@ -227,37 +240,21 @@ module Liquid
       render(*args)
     end
 
+    def render_to_output_buffer(context, output)
+      render(context, output: output)
+    end
+
     private
 
-    # Uses the <tt>Liquid::TemplateParser</tt> regexp to tokenize the passed source
     def tokenize(source)
-      source = source.source if source.respond_to?(:source)
-      return [] if source.to_s.empty?
-
-      tokens = calculate_line_numbers(source.split(TemplateParser))
-
-      # removes the rogue empty element at the beginning of the array
-      tokens.shift if tokens[0] and tokens[0].empty?
-
-      tokens
+      Tokenizer.new(source, @line_numbers)
     end
 
-    def calculate_line_numbers(raw_tokens)
-      return raw_tokens unless @line_numbers
-
-      current_line = 1
-      raw_tokens.map do |token|
-        Token.new(token, current_line).tap do
-          current_line += token.count("\n")
-        end
-      end
-    end
-
-    def with_profiling
-      if @profiling && !@options[:included]
+    def with_profiling(context)
+      if @profiling && !context.partial
         raise "Profiler not loaded, require 'liquid/profiler' first" unless defined?(Liquid::Profiler)
 
-        @profiler = Profiler.new
+        @profiler = Profiler.new(context.template_name)
         @profiler.start
 
         begin
@@ -268,6 +265,14 @@ module Liquid
       else
         yield
       end
+    end
+
+    def apply_options_to_context(context, options)
+      context.add_filters(options[:filters]) if options[:filters]
+      context.global_filter = options[:global_filter] if options[:global_filter]
+      context.exception_renderer = options[:exception_renderer] if options[:exception_renderer]
+      context.strict_variables = options[:strict_variables] if options[:strict_variables]
+      context.strict_filters = options[:strict_filters] if options[:strict_filters]
     end
   end
 end

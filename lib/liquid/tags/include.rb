@@ -1,5 +1,6 @@
-module Liquid
+# frozen_string_literal: true
 
+module Liquid
   # Include allows templates to relate with other templates
   #
   # Simply include another template:
@@ -15,93 +16,94 @@ module Liquid
   #   {% include 'product' for products %}
   #
   class Include < Tag
-    Syntax = /(#{QuotedFragment}+)(\s+(?:with|for)\s+(#{QuotedFragment}+))?/o
+    SYNTAX = /(#{QuotedFragment}+)(\s+(?:with|for)\s+(#{QuotedFragment}+))?(\s+(?:as)\s+(#{VariableSegment}+))?/o
+    Syntax = SYNTAX
+
+    attr_reader :template_name_expr, :variable_name_expr, :attributes
 
     def initialize(tag_name, markup, options)
       super
 
-      if markup =~ Syntax
+      if markup =~ SYNTAX
 
-        template_name = $1
-        variable_name = $3
+        template_name = Regexp.last_match(1)
+        variable_name = Regexp.last_match(3)
 
-        @variable_name = Expression.parse(variable_name || template_name[1..-2])
-        @context_variable_name = template_name[1..-2].split('/'.freeze).last
-        @template_name = Expression.parse(template_name)
-        @attributes    = {}
+        @alias_name = Regexp.last_match(5)
+        @variable_name_expr = variable_name ? Expression.parse(variable_name) : nil
+        @template_name_expr = Expression.parse(template_name)
+        @attributes = {}
 
         markup.scan(TagAttributes) do |key, value|
           @attributes[key] = Expression.parse(value)
         end
 
       else
-        raise SyntaxError.new(options[:locale].t("errors.syntax.include".freeze))
+        raise SyntaxError, options[:locale].t("errors.syntax.include")
       end
     end
 
-    def parse(tokens)
+    def parse(_tokens)
     end
 
-    def render(context)
-      partial = load_cached_partial(context)
-      variable = context.evaluate(@variable_name)
+    def render_to_output_buffer(context, output)
+      template_name = context.evaluate(@template_name_expr)
+      raise ArgumentError, options[:locale].t("errors.argument.include") unless template_name
 
-      context.stack do
-        @attributes.each do |key, value|
-          context[key] = context.evaluate(value)
-        end
+      partial = PartialCache.load(
+        template_name,
+        context: context,
+        parse_context: parse_context
+      )
 
-        if variable.is_a?(Array)
-          variable.collect do |var|
-            context[@context_variable_name] = var
-            partial.render(context)
+      context_variable_name = @alias_name || template_name.split('/').last
+
+      variable = if @variable_name_expr
+        context.evaluate(@variable_name_expr)
+      else
+        context.find_variable(template_name, raise_on_not_found: false)
+      end
+
+      old_template_name = context.template_name
+      old_partial = context.partial
+      begin
+        context.template_name = template_name
+        context.partial = true
+        context.stack do
+          @attributes.each do |key, value|
+            context[key] = context.evaluate(value)
           end
-        else
-          context[@context_variable_name] = variable
-          partial.render(context)
+
+          if variable.is_a?(Array)
+            variable.each do |var|
+              context[context_variable_name] = var
+              partial.render_to_output_buffer(context, output)
+            end
+          else
+            context[context_variable_name] = variable
+            partial.render_to_output_buffer(context, output)
+          end
         end
+      ensure
+        context.template_name = old_template_name
+        context.partial = old_partial
       end
+
+      output
     end
 
-    private
-      def load_cached_partial(context)
-        cached_partials = context.registers[:cached_partials] || {}
-        template_name = context.evaluate(@template_name)
+    alias_method :parse_context, :options
+    private :parse_context
 
-        if cached = cached_partials[template_name]
-          return cached
-        end
-        source = read_template_from_file_system(context)
-        partial = Liquid::Template.parse(source, pass_options)
-        cached_partials[template_name] = partial
-        context.registers[:cached_partials] = cached_partials
-        partial
+    class ParseTreeVisitor < Liquid::ParseTreeVisitor
+      def children
+        [
+          @node.template_name_expr,
+          @node.variable_name_expr,
+        ] + @node.attributes.values
       end
-
-      def read_template_from_file_system(context)
-        file_system = context.registers[:file_system] || Liquid::Template.file_system
-
-        # make read_template_file call backwards-compatible.
-        case file_system.method(:read_template_file).arity
-        when 1
-          file_system.read_template_file(context.evaluate(@template_name))
-        when 2
-          file_system.read_template_file(context.evaluate(@template_name), context)
-        else
-          raise ArgumentError, "file_system.read_template_file expects two parameters: (template_name, context)"
-        end
-      end
-
-      def pass_options
-        dont_pass = @options[:include_options_blacklist]
-        return {locale: @options[:locale]} if dont_pass == true
-        opts = @options.merge(included: true, include_options_blacklist: false)
-        if dont_pass.is_a?(Array)
-          dont_pass.each {|o| opts.delete(o)}
-        end
-        opts
-      end
+    end
   end
 
-  Template.register_tag('include'.freeze, Include)
+  Template.register_tag('include', Include)
 end

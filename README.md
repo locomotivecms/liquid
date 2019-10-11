@@ -42,6 +42,8 @@ Liquid is a template engine which was written with very specific requirements:
 
 ## How to use Liquid
 
+Install Liquid by adding `gem 'liquid'` to your gemfile.
+
 Liquid supports a very simple API based around the Liquid::Template class.
 For standard use you can just pass it the content of a file and call render with a parameters hash.
 
@@ -73,3 +75,40 @@ This is useful for doing things like enabling strict mode only in the theme edit
 
 It is recommended that you enable `:strict` or `:warn` mode on new apps to stop invalid templates from being created.
 It is also recommended that you use it in the template editors of existing apps to give editors better error messages.
+
+### Undefined variables and filters
+
+By default, the renderer doesn't raise or in any other way notify you if some variables or filters are missing, i.e. not passed to the `render` method.
+You can improve this situation by passing `strict_variables: true` and/or `strict_filters: true` options to the `render` method.
+When one of these options is set to true, all errors about undefined variables and undefined filters will be stored in `errors` array of a `Liquid::Template` instance.
+Here are some examples:
+
+```ruby
+template = Liquid::Template.parse("{{x}} {{y}} {{z.a}} {{z.b}}")
+template.render({ 'x' => 1, 'z' => { 'a' => 2 } }, { strict_variables: true })
+#=> '1  2 ' # when a variable is undefined, it's rendered as nil
+template.errors
+#=> [#<Liquid::UndefinedVariable: Liquid error: undefined variable y>, #<Liquid::UndefinedVariable: Liquid error: undefined variable b>]
+```
+
+```ruby
+template = Liquid::Template.parse("{{x | filter1 | upcase}}")
+template.render({ 'x' => 'foo' }, { strict_filters: true })
+#=> '' # when at least one filter in the filter chain is undefined, a whole expression is rendered as nil
+template.errors
+#=> [#<Liquid::UndefinedFilter: Liquid error: undefined filter filter1>]
+```
+
+If you want to raise on a first exception instead of pushing all of them in `errors`, you can use `render!` method:
+
+```ruby
+template = Liquid::Template.parse("{{x}} {{y}}")
+template.render!({ 'x' => 1}, { strict_variables: true })
+#=> Liquid::UndefinedVariable: Liquid error: undefined variable y
+```
+
+### Usage tracking
+
+To help track usages of a feature or code path in production, we have released opt-in usage tracking. To enable this, we provide an empty `Liquid:: Usage.increment` method which you can customize to your needs. The feature is well suited to https://github.com/Shopify/statsd-instrument. However, the choice of implementation is up to you.
+
+Once you have enabled usage tracking, we recommend reporting any events through Github Issues that your system may be logging. It is highly likely this event has been added to consider deprecating or improving code specific to this event, so please raise any concerns.

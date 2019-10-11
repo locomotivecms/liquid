@@ -1,7 +1,11 @@
+# frozen_string_literal: true
+
 module Liquid
   class VariableLookup
     SQUARE_BRACKETED = /\A\[(.*)\]\z/m
-    COMMAND_METHODS = ['size'.freeze, 'first'.freeze, 'last'.freeze]
+    COMMAND_METHODS = ['size', 'first', 'last'].freeze
+
+    attr_reader :name, :lookups
 
     def self.parse(markup)
       new(markup)
@@ -12,7 +16,7 @@ module Liquid
 
       name = lookups.shift
       if name =~ SQUARE_BRACKETED
-        name = Expression.parse($1)
+        name = Expression.parse(Regexp.last_match(1))
       end
       @name = name
 
@@ -22,7 +26,7 @@ module Liquid
       @lookups.each_index do |i|
         lookup = lookups[i]
         if lookup =~ SQUARE_BRACKETED
-          lookups[i] = Expression.parse($1)
+          lookups[i] = Expression.parse(Regexp.last_match(1))
         elsif COMMAND_METHODS.include?(lookup)
           @command_flags |= 1 << i
         end
@@ -39,8 +43,8 @@ module Liquid
         # If object is a hash- or array-like object we look for the
         # presence of the key and if its available we return it
         if object.respond_to?(:[]) &&
-          ((object.respond_to?(:has_key?) && object.has_key?(key)) ||
-           (object.respond_to?(:fetch) && key.is_a?(Integer)))
+            ((object.respond_to?(:key?) && object.key?(key)) ||
+             (object.respond_to?(:fetch) && key.is_a?(Integer)))
 
           # if its a proc we will replace the entry with the proc
           res = context.lookup_and_evaluate(object, key)
@@ -53,9 +57,11 @@ module Liquid
           object = object.send(key).to_liquid
 
           # No key was present with the desired value and it wasn't one of the directly supported
-          # keywords either. The only thing we got left is to return nil
+          # keywords either. The only thing we got left is to return nil or
+          # raise an exception if `strict_variables` option is set to true
         else
-          return nil
+          return nil unless context.strict_variables
+          raise Liquid::UndefinedVariable, "undefined variable #{key}"
         end
 
         # If we are dealing with a drop here we have to
@@ -66,13 +72,19 @@ module Liquid
     end
 
     def ==(other)
-      self.class == other.class && self.state == other.state
+      self.class == other.class && state == other.state
     end
 
     protected
 
     def state
       [@name, @lookups, @command_flags]
+    end
+
+    class ParseTreeVisitor < Liquid::ParseTreeVisitor
+      def children
+        @node.lookups
+      end
     end
   end
 end

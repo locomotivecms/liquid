@@ -1,5 +1,6 @@
-module Liquid
+# frozen_string_literal: true
 
+module Liquid
   # Assign sets a variable in your template.
   #
   #   {% assign foo = 'monkey' %}
@@ -11,31 +12,54 @@ module Liquid
   class Assign < Tag
     Syntax = /(#{VariableSignature}+)\s*=\s*(.*)\s*/om
 
+    def self.syntax_error_translation_key
+      "errors.syntax.assign"
+    end
+
+    attr_reader :to, :from
+
     def initialize(tag_name, markup, options)
       super
       if markup =~ Syntax
-        @to = $1
-        @from = Variable.new($2,options)
-        @from.line_number = line_number
+        @to = Regexp.last_match(1)
+        @from = Variable.new(Regexp.last_match(2), options)
       else
-        raise SyntaxError.new options[:locale].t("errors.syntax.assign".freeze)
+        raise SyntaxError, options[:locale].t(self.class.syntax_error_translation_key)
       end
     end
 
-    def render(context)
+    def render_to_output_buffer(context, output)
       val = @from.render(context)
       context.scopes.last[@to] = val
-
-      inc = val.instance_of?(String) || val.instance_of?(Array) || val.instance_of?(Hash) ? val.length : 1
-      context.resource_limits.assign_score += inc
-
-      ''.freeze
+      context.resource_limits.assign_score += assign_score_of(val)
+      output
     end
 
     def blank?
       true
     end
+
+    private
+
+    def assign_score_of(val)
+      if val.instance_of?(String)
+        val.bytesize
+      elsif val.instance_of?(Array) || val.instance_of?(Hash)
+        sum = 1
+        # Uses #each to avoid extra allocations.
+        val.each { |child| sum += assign_score_of(child) }
+        sum
+      else
+        1
+      end
+    end
+
+    class ParseTreeVisitor < Liquid::ParseTreeVisitor
+      def children
+        [@node.from]
+      end
+    end
   end
 
-  Template.register_tag('assign'.freeze, Assign)
+  Template.register_tag('assign', Assign)
 end

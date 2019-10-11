@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'time'
 require 'date'
 
@@ -7,44 +9,56 @@ class String # :nodoc:
   end
 end
 
-class Array  # :nodoc:
+class Symbol # :nodoc:
+  def to_liquid
+    to_s
+  end
+end
+
+class Array # :nodoc:
   def to_liquid
     self
   end
 end
 
-class Hash  # :nodoc:
+class Hash # :nodoc:
   def to_liquid
     self
   end
 end
 
-class Numeric  # :nodoc:
+class Numeric # :nodoc:
   def to_liquid
     self
   end
 end
 
-class Time  # :nodoc:
+class Range # :nodoc:
   def to_liquid
     self
   end
 end
 
-class DateTime < Date  # :nodoc:
+class Time # :nodoc:
   def to_liquid
     self
   end
 end
 
-class Date  # :nodoc:
+class DateTime < Date # :nodoc:
+  def to_liquid
+    self
+  end
+end
+
+class Date # :nodoc:
   def to_liquid
     self
   end
 end
 
 class TrueClass
-  def to_liquid  # :nodoc:
+  def to_liquid # :nodoc:
     self
   end
 end

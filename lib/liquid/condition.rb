@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Liquid
   # Container for liquid nodes which conveniently wraps decision making logic
   #
@@ -8,44 +10,55 @@ module Liquid
   #
   class Condition #:nodoc:
     @@operators = {
-      '=='.freeze => lambda { |cond, left, right|  cond.send(:equal_variables, left, right) },
-      '!='.freeze => lambda { |cond, left, right| !cond.send(:equal_variables, left, right) },
-      '<>'.freeze => lambda { |cond, left, right| !cond.send(:equal_variables, left, right) },
-      '<'.freeze  => :<,
-      '>'.freeze  => :>,
-      '>='.freeze => :>=,
-      '<='.freeze => :<=,
-      'contains'.freeze => lambda { |cond, left, right|
-        left && right && left.respond_to?(:include?) ? left.include?(right) : false
-      }
+      '==' => ->(cond, left, right) {  cond.send(:equal_variables, left, right) },
+      '!=' => ->(cond, left, right) { !cond.send(:equal_variables, left, right) },
+      '<>' => ->(cond, left, right) { !cond.send(:equal_variables, left, right) },
+      '<' => :<,
+      '>' => :>,
+      '>=' => :>=,
+      '<=' => :<=,
+      'contains' => lambda do |_cond, left, right|
+        if left && right && left.respond_to?(:include?)
+          right = right.to_s if left.is_a?(String)
+          left.include?(right)
+        else
+          false
+        end
+      end,
     }
 
     def self.operators
       @@operators
     end
 
-    attr_reader :attachment
+    attr_reader :attachment, :child_condition
     attr_accessor :left, :operator, :right
 
     def initialize(left = nil, operator = nil, right = nil)
       @left = left
       @operator = operator
       @right = right
-      @child_relation  = nil
+      @child_relation = nil
       @child_condition = nil
     end
 
     def evaluate(context = Context.new)
-      result = interpret_condition(left, right, operator, context)
+      condition = self
+      result = nil
+      loop do
+        result = interpret_condition(condition.left, condition.right, condition.operator, context)
 
-      case @child_relation
-      when :or
-        result || @child_condition.evaluate(context)
-      when :and
-        result && @child_condition.evaluate(context)
-      else
-        result
+        case condition.child_relation
+        when :or
+          break if result
+        when :and
+          break unless result
+        else
+          break
+        end
+        condition = condition.child_condition
       end
+      result
     end
 
     def or(condition)
@@ -67,23 +80,27 @@ module Liquid
     end
 
     def inspect
-      "#<Condition #{[@left, @operator, @right].compact.join(' '.freeze)}>"
+      "#<Condition #{[@left, @operator, @right].compact.join(' ')}>"
     end
+
+    protected
+
+    attr_reader :child_relation
 
     private
 
     def equal_variables(left, right)
-      if left.is_a?(Symbol)
-        if right.respond_to?(left)
-          return right.send(left.to_s)
+      if left.is_a?(Liquid::Expression::MethodLiteral)
+        if right.respond_to?(left.method_name)
+          return right.send(left.method_name)
         else
           return nil
         end
       end
 
-      if right.is_a?(Symbol)
-        if left.respond_to?(right)
-          return left.send(right.to_s)
+      if right.is_a?(Liquid::Expression::MethodLiteral)
+        if left.respond_to?(right.method_name)
+          return left.send(right.method_name)
         else
           return nil
         end
@@ -96,36 +113,41 @@ module Liquid
       # If the operator is empty this means that the decision statement is just
       # a single variable. We can just poll this variable from the context and
       # return this as the result.
-      return context.evaluate(left) if op == nil
+      return context.evaluate(left) if op.nil?
 
       left = context.evaluate(left)
       right = context.evaluate(right)
 
-      operation = self.class.operators[op] || raise(Liquid::ArgumentError.new("Unknown operator #{op}"))
+      operation = self.class.operators[op] || raise(Liquid::ArgumentError, "Unknown operator #{op}")
 
       if operation.respond_to?(:call)
         operation.call(self, left, right)
-      elsif left.respond_to?(operation) and right.respond_to?(operation)
+      elsif left.respond_to?(operation) && right.respond_to?(operation) && !left.is_a?(Hash) && !right.is_a?(Hash)
         begin
           left.send(operation, right)
         rescue ::ArgumentError => e
-          raise Liquid::ArgumentError.new(e.message)
+          raise Liquid::ArgumentError, e.message
         end
-      else
-        nil
+      end
+    end
+
+    class ParseTreeVisitor < Liquid::ParseTreeVisitor
+      def children
+        [
+          @node.left, @node.right,
+          @node.child_condition, @node.attachment
+        ].compact
       end
     end
   end
-
 
   class ElseCondition < Condition
     def else?
       true
     end
 
-    def evaluate(context)
+    def evaluate(_context)
       true
     end
   end
-
 end
