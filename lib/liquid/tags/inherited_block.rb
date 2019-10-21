@@ -59,9 +59,9 @@ module Liquid
       inherited_blocks[:nested].pop
     end
 
-    alias_method :render_without_inheritance, :render
+    alias_method :render_without_inheritance, :render_to_output_buffer
 
-    def render(context)
+    def render_to_output_buffer(context, output)
       context.stack do
         # look for the very first descendant
         block = self_or_first_descendant
@@ -69,7 +69,7 @@ module Liquid
         # the block drop is in charge of rendering "{{ block.super }}"
         context['block'] = InheritedBlockDrop.new(block)
 
-        block.render_without_inheritance(context)
+        block.render_without_inheritance(context, output)
       end
     end
 
