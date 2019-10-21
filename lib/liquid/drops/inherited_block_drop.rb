@@ -1,12 +1,12 @@
-module Liquid
+# frozen_string_literal: true
 
+module Liquid
   # Used to render the content of the parent block.
   #
   #   {% extends home %}
   #   {% block content }{{ block.super }}{% endblock %}
   #
   class InheritedBlockDrop < Drop
-
     def initialize(block)
       @block = block
     end
@@ -18,7 +18,5 @@ module Liquid
     def super
       @block.call_super(@context)
     end
-
   end
-
 end

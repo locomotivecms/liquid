@@ -25,7 +25,7 @@ module Liquid
           false
         end
       end,
-      'is' => lambda { |cond, left, right|  cond.send(:equal_variables, left, right) }
+      'is' => lambda { |cond, left, right| cond.send(:equal_variables, left, right) },
     }
 
     def self.operators

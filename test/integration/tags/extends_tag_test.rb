@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 require 'test_helper'
 
 class LayoutFileSystem
-  def read_template_file(template_path, context)
+  def read_template_file(template_path, _)
     case template_path
     when "base"
       "<body>base</body>"
@@ -105,5 +107,4 @@ class ExtendsTagTest < Minitest::Test
   #     end
   #   end
   # end
-
 end # ExtendsTagTest

@@ -1,5 +1,6 @@
-module Liquid
+# frozen_string_literal: true
 
+module Liquid
   # Blocks are used with the Extends tag to define
   # the content of blocks. Nested blocks are allowed.
   #
@@ -7,7 +8,7 @@ module Liquid
   #   {% block content }Hello world{% endblock %}
   #
   class InheritedBlock < Block
-    Syntax = /(#{QuotedFragment}+)/o
+    SYNTAX = /(#{QuotedFragment}+)/o
 
     attr_reader   :name
 
@@ -18,8 +19,8 @@ module Liquid
     def initialize(tag_name, markup, options)
       super
 
-      if markup =~ Syntax
-        @name = $1.gsub(/["']/o, '').strip
+      if markup =~ SYNTAX
+        @name = Regexp.last_match(1).gsub(/["']/o, '').strip
       else
         raise(SyntaxError.new(options[:locale].t("errors.syntax.block")), options[:line])
       end
@@ -29,7 +30,7 @@ module Liquid
 
     def prepare_for_inheritance
       # give a different name if this is a nested block
-      if block = inherited_blocks[:nested].last
+      if (block = inherited_blocks[:nested].last)
         @name = "#{block.name}/#{@name}"
       end
 
@@ -39,7 +40,7 @@ module Liquid
 
       # build the linked chain of inherited blocks
       # make a link with the descendant and the parent (chained list)
-      if descendant = inherited_blocks[:all][@name]
+      if (descendant = inherited_blocks[:all][@name])
         self.descendant   = descendant
         descendant.parent = self
 
@@ -93,12 +94,8 @@ module Liquid
 
     def inherited_blocks
       # initialize it in the case the template does not include an extend tag
-      options[:inherited_blocks] ||= {
-        all:    {},
-        nested: []
-      }
+      options[:inherited_blocks] ||= { all: {}, nested: [] }
     end
-
   end
 
   Template.register_tag('block', InheritedBlock)
