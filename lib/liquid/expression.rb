@@ -20,7 +20,8 @@ module Liquid
       'true' => true,
       'false' => false,
       'blank' => MethodLiteral.new(:blank?, '').freeze,
-      'empty' => MethodLiteral.new(:empty?, '').freeze
+      'empty' => MethodLiteral.new(:empty?, '').freeze,
+      'present' => MethodLiteral.new(:present?, '').freeze
     }.freeze
 
     SINGLE_QUOTED_STRING = /\A'(.*)'\z/m

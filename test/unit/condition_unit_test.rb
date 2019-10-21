@@ -55,6 +55,11 @@ class ConditionUnitTest < Minitest::Test
     assert_evaluates_false('bob', 'contains', '---')
   end
 
+  def test_is_works_on_strings
+    assert_evaluates_true('bob', 'is', 'bob')
+    assert_evaluates_false('bob2', 'is', 'bob')
+  end
+
   def test_invalid_comparation_operator
     assert_evaluates_argument_error(1, '~~', 0)
   end
